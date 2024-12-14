@@ -53,7 +53,7 @@ This command will download the `fineweb_edu` and prepare it for training in the 
 python setup/download_prepare_hf_data.py fineweb_edu <MEMORY> --data_dir ./data --seed 42 --nchunks <NCHUNKS>
 ```
 
-to download tokenizer (here llama3), use the folowing script:
+to download tokenizer (here llama3), use the following script:
 
 ```bash
 python setup/download_tokenizer.py llama3 <SAVE_PATH> --api_key <HUGGINGFACE_TOKEN>
