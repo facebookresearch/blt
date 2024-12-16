@@ -112,6 +112,6 @@ Lingua Code
 
 ## License
 
-The BLT code is partially based on Meta Lingia.
+The BLT code is partially based on Meta Lingua.
 
 Meta Lingua is licensed under BSD-3-Clause license. Refer to the LICENSE file in the top level directory.
