@@ -29,6 +29,7 @@ setup(
         "altair",
         "submitit",
         "typer",
-        "rich"
+        "rich",
+        "xformers"
     ]
 )
