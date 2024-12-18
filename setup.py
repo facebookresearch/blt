@@ -8,28 +8,8 @@ setup(
     url="https://github.com/facebookresearch/blt",
     packages=find_packages(),
     install_requires=[
-        "numpy",
-        "omegaconf",
-        "msgspec",
-        "rouge-score",
-        "sacrebleu",
         "sentencepiece",
         "tiktoken",
-        "fsspec",
-        "blobfile",
-        "wandb",
-        "viztracer",
-        "lm-eval",
-        "scipy",
-        "pynvml",
-        "datatrove",
-        "orjson",
-        "luigi",
-        "pydantic",
-        "altair",
-        "submitit",
-        "typer",
-        "rich",
         "xformers"
     ]
 )
