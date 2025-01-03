@@ -7,9 +7,5 @@ setup(
     author="Meta Platforms, Inc. and affiliates.",
     url="https://github.com/facebookresearch/blt",
     packages=find_packages(),
-    install_requires=[
-        "sentencepiece",
-        "tiktoken",
-        "xformers"
-    ]
+    install_requires=["sentencepiece", "tiktoken", "xformers"],
 )
