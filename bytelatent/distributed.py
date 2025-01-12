@@ -48,8 +48,12 @@ default_no_recompute_ops = {
     torch.ops.aten._scaled_dot_product_flash_attention.default,
     torch.ops.c10d_functional.reduce_scatter_tensor.default,
     torch.ops.xformers_flash.flash_fwd.default,
-    torch.ops.xformers.efficient_attention_forward_cutlass.default,
 }
+
+if "efficient_attention_forward_cutlass" in dir(torch.ops.xformers):
+    default_no_recompute_ops.add(
+        torch.ops.xformers.efficient_attention_forward_cutlass.default
+    )
 
 
 class DistributedArgs(BaseModel):

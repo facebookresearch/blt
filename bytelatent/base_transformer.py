@@ -16,7 +16,10 @@ from xformers.ops import AttentionBias, fmha
 
 from bytelatent import probe
 
-flex_attention_comp = torch.compile(flex_attention)
+try:
+    flex_attention_comp = torch.compile(flex_attention)
+except RuntimeError:
+    flex_attention_comp = None
 
 
 class InitStdFactor(Enum):
