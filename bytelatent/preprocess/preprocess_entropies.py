@@ -117,7 +117,7 @@ def main(
                         text = get_text(doc)
                         tokens = torch.tensor(tokenizer.encode(text))
                         patch_start = time.time()
-                        scores = calculate_entropies(
+                        scores, _ = calculate_entropies(
                             tokens,
                             entropy_model,
                             patching_batch_size,
