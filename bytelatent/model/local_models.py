@@ -199,9 +199,6 @@ class LocalModelBase(nn.Module):
 class LocalEncoder(LocalModelBase):
     def __init__(self, args: LocalModelArgs):
         super().__init__(args)
-        self.output_proj = (
-            args.patching_mode in ["entropy", "probmax"]
-        ) and args.entropy_model_checkpoint_dir is None
 
         self.apply_transformer = args.use_local_encoder_transformer
         self.downsampling_by_pooling = args.downsampling_by_pooling
