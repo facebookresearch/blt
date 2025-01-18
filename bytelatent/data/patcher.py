@@ -502,7 +502,6 @@ class Patcher:
         preds: torch.Tensor | None = None,
         entropies: torch.Tensor | None = None,
         threshold: float = None,
-        patching_batch_size: int | None = None,
     ) -> torch.Tensor:
         """
         tokens: 2D tensor of shape [batch_size, seq_len] that needs to be patched
