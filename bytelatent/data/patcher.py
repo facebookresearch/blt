@@ -540,7 +540,7 @@ class Patcher:
             if self.log_time:
                 s = time.time()
             if entropies is not None:
-                scores = entropies.clone().detach().to(dtype=torch.float32)
+                scores = entropies.to(dtype=torch.float32)
             elif preds is not None:
                 scores = entropy(preds)
             else:
