@@ -162,9 +162,6 @@ def create_causal_mask(
             return "causal"
 
         if BLT_SUPPRESS_ATTN_ERROR == 1:
-            logging.warning(
-                "SDPA attention being used, which doesn't have specialized attention implementations for block_causal and local_block_causal attention. Allowing model to run since BLT_SUPPRESS_ATTN_ERROR=1"
-            )
             return "causal"
         else:
             raise ValueError(
