@@ -118,6 +118,10 @@ def patch_start_mask_from_entropy_with_monotonicity(entropies, t):
     returns [bs, seq_len] mask where True indicates the start of a patch
     """
     bs, seq_len = entropies.shape
+
+    if seq_len == 0:
+        return entropies > t
+
     mask = torch.zeros_like(entropies, dtype=torch.bool)
     mask[:, 0] = True
 
@@ -140,6 +144,10 @@ def patch_start_mask_global_and_monotonicity(entropies, t, t_add=0):
     returns [bs, seq_len] mask where True indicates the start of a patch
     """
     bs, seq_len = entropies.shape
+
+    if seq_len == 0:
+        return entropies > t
+
     mask = torch.zeros_like(entropies, dtype=torch.bool)
     mask[:, 0] = True
 
