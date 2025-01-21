@@ -467,24 +467,19 @@ def split_large_numbers(lst, m):
 
 
 class Patcher:
-    def __init__(self, patcher_args: PatcherArgs, entropy_model: nn.Module = None):
+    def __init__(self, patcher_args: PatcherArgs):
         self.patcher_args = patcher_args
         self.patching_mode = patcher_args.patching_mode
         self.realtime_patching = patcher_args.realtime_patching
         if self.realtime_patching:
-            if entropy_model is not None:
-                self.entropy_model = entropy_model
-            else:
-                assert (
-                    patcher_args.entropy_model_checkpoint_dir is not None
-                ), "Cannot require realtime patching without an entropy model checkpoint"
-                entropy_model = load_entropy_model(
-                    patcher_args.entropy_model_checkpoint_dir
-                )
-                entropy_model, _ = to_device(
-                    entropy_model, patcher_args.patching_device
-                )
-                self.entropy_model = entropy_model
+            assert (
+                patcher_args.entropy_model_checkpoint_dir is not None
+            ), "Cannot require realtime patching without an entropy model checkpoint"
+            entropy_model = load_entropy_model(
+                patcher_args.entropy_model_checkpoint_dir
+            )
+            entropy_model, _ = to_device(entropy_model, patcher_args.patching_device)
+            self.entropy_model = entropy_model
         else:
             self.entropy_model = None
         self.threshold = patcher_args.threshold
