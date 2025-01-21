@@ -7,7 +7,6 @@ from enum import Enum
 
 import torch
 from pydantic import BaseModel
-from torch import nn
 from torch.nn import functional as F
 
 from bytelatent.distributed import get_local_rank
