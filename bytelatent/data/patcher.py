@@ -26,12 +26,8 @@ class PatchingModeEnum(str, Enum):
 
 
 class PatcherArgs(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
     patching_mode: PatchingModeEnum = PatchingModeEnum.entropy
     patching_device: str = "cuda"
-    entropy_model: nn.Module | None = None
     entropy_model_checkpoint_dir: str | None = None
     realtime_patching: bool = False
     threshold: float = 1.335442066192627
@@ -471,13 +467,13 @@ def split_large_numbers(lst, m):
 
 
 class Patcher:
-    def __init__(self, patcher_args: PatcherArgs):
+    def __init__(self, patcher_args: PatcherArgs, entropy_model: nn.Module = None):
         self.patcher_args = patcher_args
         self.patching_mode = patcher_args.patching_mode
         self.realtime_patching = patcher_args.realtime_patching
         if self.realtime_patching:
-            if patcher_args.entropy_model is not None:
-                self.entropy_model = patcher_args.entropy_model
+            if entropy_model is not None:
+                self.entropy_model = entropy_model
             else:
                 assert (
                     patcher_args.entropy_model_checkpoint_dir is not None
