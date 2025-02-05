@@ -25,6 +25,7 @@ from torch.optim import lr_scheduler
 
 from bytelatent.args import TrainArgs, parse_args
 from bytelatent.checkpoint import CheckpointManager, load_from_checkpoint
+from bytelatent.data.file_util import get_fs
 from bytelatent.data.iterators.multiprocess_iterator import (
     MultiprocessIterator,
     MultiprocessIteratorState,
@@ -313,8 +314,11 @@ def train(args: TrainArgs):
 
         if args.checkpoint.init_ckpt_path:
             logger.info(f"Loading initial model from {args.checkpoint.init_ckpt_path}")
+            ckpt_fs = get_fs(
+                args.checkpoint.init_ckpt_path, s3_profile=args.checkpoint.s3_profile
+            )
             load_from_checkpoint(
-                args.checkpoint.init_ckpt_path, model, model_key="model"
+                ckpt_fs, args.checkpoint.init_ckpt_path, model, model_key="model"
             )  # Put model_key="" if its directly the model checkpoint
             model.rope_embeddings.reset_parameters()  # For RoPe initialization since it's a buffer it might not be loaded
         else:
