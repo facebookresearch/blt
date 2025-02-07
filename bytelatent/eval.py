@@ -15,9 +15,16 @@ from lm_eval.api.model import LM
 from omegaconf import OmegaConf
 from pydantic import BaseModel, ConfigDict
 
-from bytelatent.args import EvalArgs, ValidationArgs, parse_args
+from bytelatent.args import (
+    EvalArgs,
+    TrainArgs,
+    ValidationArgs,
+    find_and_sanitize_chunks,
+    parse_args,
+)
 from bytelatent.checkpoint import CONSOLIDATE_FOLDER, consolidate_checkpoints
 from bytelatent.data.file_util import get_fs
+from bytelatent.data.iterators.arrow_iterator import ArrowFileIterator
 from bytelatent.distributed import (
     DistributedArgs,
     dist_mean_dict,
@@ -117,19 +124,40 @@ class EvalHarnessLM(LM):
         return results
 
 
-def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
-    srcs = {}
+def eval_on_val(generator, val_args: ValidationArgs, train_cfg: TrainArgs):
+    srcs = []
     for src in val_args.sources:
         path = os.path.join(val_args.root_dir, src)
-        srcs[path] = 1.0
+        srcs.append(path)
+
     for src in train_cfg.data.sources:
         path = os.path.join(train_cfg.data.root_dir, src)
-        srcs[path] = 1.0
+        srcs.append(path)
 
-    multi_state = init_choice_state(
-        "", srcs, 0, get_global_rank(), get_world_size(), "*.val.jsonl"
-    )
-    path_to_iter = setup_sources(multi_state)
+    path_to_iter = {}
+    for path in srcs:
+        chunks = find_and_sanitize_chunks(
+            path,
+            world_size=1,
+            file_pattern="*.val.jsonl",
+            s3_profile=train_cfg.data.s3_profile,
+        )
+        assert (
+            len(chunks) == 1
+        ), f"There should be only 1 chunk per validation file, but found: {chunks}"
+        chunk = chunks[0]
+        iterator = ArrowFileIterator(
+            dataset_files=[chunk],
+            file_path=None,
+            preprocess_dir=None,
+            entropy_model_name=None,
+            worker_id=0,
+            num_workers=1,
+            arrow_batch_size=train_cfg.data.arrow_batch_size,
+            s3_profile=train_cfg.data.s3_profile,
+            file_format="json",
+        )
+        path_to_iter[path] = iterator
 
     max_gen_len = generator.max_gen_len
     # We temporarily lower max gen len
@@ -137,16 +165,11 @@ def eval_on_val(generator, val_args: ValidationArgs, train_cfg):
 
     all_val_metrics = {}
     for src in path_to_iter:
-        jsonl_iterator = path_to_iter[src]
+        example_iterator = path_to_iter[src].create_iter()
         texts = []
         logger.info(f"Running validation on {src}...")
-        for step, (content, state) in enumerate(jsonl_iterator):
-            if state["current_iter"] > 0 or (
-                val_args.max_steps is not None and step >= val_args.max_steps
-            ):
-                break
-            content_key = "text" if ("text" in content) else "content"
-            texts.append(content[content_key])
+        for step, example in enumerate(example_iterator):
+            texts.append(example.text)
 
         _, loglikelihood, _ = generator.generate(texts)
 
@@ -191,7 +214,7 @@ def launch_eval(eval_args: EvalArgs):
     else:
         consolidate_path = os.path.join(eval_args.ckpt_dir, CONSOLIDATE_FOLDER)
         if not fs.exists(consolidate_path) and get_global_rank() == 0:
-            consolidate_path = consolidate_checkpoints(eval_args.ckpt_dir)
+            consolidate_path = consolidate_checkpoints(fs, eval_args.ckpt_dir)
 
     fs.mkdirs(eval_args.dump_dir, exist_ok=True)
     with fs.open(os.path.join(eval_args.dump_dir, "config.yaml"), "w") as f:
@@ -210,10 +233,12 @@ def launch_eval(eval_args: EvalArgs):
 
     wrap = EvalHarnessLM(generator)
     # Redo
-    results = simple_evaluate(wrap, eval_args.harness.model_dump())
+    results = simple_evaluate(wrap, **eval_args.harness.model_dump())
+
     val_results = None
     if eval_args.validation:
         val_results = eval_on_val(generator, eval_args.validation, train_cfg)
+
     if get_global_rank() == 0:
         with fs.open(os.path.join(eval_args.dump_dir, "results.json"), "w") as f:
             f.write(json.dumps(results))
@@ -222,6 +247,7 @@ def launch_eval(eval_args: EvalArgs):
             with fs.open(os.path.join(eval_args.dump_dir, "validation.json"), "w") as f:
                 f.write(json.dumps(val_results))
             logger.info(f"All validation results: {val_results}")
+
     if eval_args.metric_log_dir and get_global_rank() == 0:
         metric_log_path = os.path.join(eval_args.metric_log_dir, "metrics.eval.jsonl")
 
