@@ -1,10 +1,8 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
-import json
 import logging
 import os
 from typing import Any
 
-import fsspec
 import numpy as np
 import yaml
 from omegaconf import OmegaConf
@@ -42,12 +40,23 @@ def get_rng_state(seed: int, rank: int, world_size: int) -> dict[str, Any]:
 
 def parse_args(args_cls):
     cli_args = OmegaConf.from_cli()
-    file_cfg = OmegaConf.load(cli_args.config)
-    # We remove 'config' attribute from config as the underlying DataClass does not have it
-    del cli_args.config
+    file_cfgs = []
+    if "config" in cli_args:
+        file_cfg = OmegaConf.load(cli_args["config"])
+        del cli_args["config"]
+        file_cfgs.append(file_cfg)
+
+    if "configs" in cli_args:
+        for c in cli_args["configs"]:
+            extra_file_cfg = OmegaConf.load(c)
+            file_cfgs.append(extra_file_cfg)
+        del cli_args["configs"]
 
     default_cfg = OmegaConf.create(args_cls().model_dump())
-    cfg = OmegaConf.merge(default_cfg, file_cfg, cli_args)
+    to_merge = [default_cfg]
+    to_merge.extend(file_cfgs)
+    to_merge.append(cli_args)
+    cfg = OmegaConf.merge(*to_merge)
     cfg = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     pydantic_args = args_cls.model_validate(cfg)
     return pydantic_args

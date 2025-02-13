@@ -26,6 +26,7 @@ from torch.optim import lr_scheduler
 from bytelatent.args import TrainArgs, parse_args
 from bytelatent.checkpoint import CheckpointManager, load_from_checkpoint
 from bytelatent.data.file_util import get_fs
+from bytelatent.data.iterators.abstract_iterator import get_state_and_refresh
 from bytelatent.data.iterators.multiprocess_iterator import (
     MultiprocessIterator,
     MultiprocessIteratorState,
@@ -35,7 +36,6 @@ from bytelatent.distributed import (
     check_model_value_range,
     clean_env,
     dist_mean,
-    dist_mean_dict,
     dist_sum,
     get_device_mesh,
     get_is_master,
@@ -699,6 +699,9 @@ def train(args: TrainArgs):
             if every_n_steps(
                 train_state, args.checkpoint.dump.every, acc_step=0
             ) or every_n_steps(train_state, args.checkpoint.eval.every, acc_step=0):
+                train_state.data_loader_state, data_loader, batch_iterator = (
+                    get_state_and_refresh(data_loader)
+                )
                 saved = checkpoint.save(
                     model,
                     optimizer,
@@ -740,6 +743,9 @@ def train(args: TrainArgs):
 
             if preemption_flag["flag"]:
                 if not saved:
+                    train_state.data_loader_state, data_loader, batch_iterator = (
+                        get_state_and_refresh(data_loader)
+                    )
                     checkpoint.save(
                         model,
                         optimizer,
@@ -751,6 +757,9 @@ def train(args: TrainArgs):
                 sys.exit(0)
 
     if not saved:
+        train_state.data_loader_state, data_loader, batch_iterator = (
+            get_state_and_refresh(data_loader)
+        )
         checkpoint.save(
             model,
             optimizer,

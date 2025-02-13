@@ -236,7 +236,7 @@ class ArrowFileIterator(StatefulIterator):
 
     def _set_row_num(self, target_row_num: int):
         logger.info(
-            f"Setting arrow position to {target_row_num} for {self.dataset_files}"
+            f"Setting arrow position to {target_row_num} for {str(self.dataset_files)[:200]}"
         )
         if target_row_num is None or target_row_num == 0:
             self.row_num = 0
@@ -286,5 +286,5 @@ class ArrowFileIterator(StatefulIterator):
                     curr_remaining -= len(batch)
             self.row_num = target_row_num
         logger.info(
-            f"Finished setting arrow position to {target_row_num} for {self.dataset_files}"
+            f"Finished setting arrow position to {target_row_num} for {str(self.dataset_files)[:200]}"
         )
