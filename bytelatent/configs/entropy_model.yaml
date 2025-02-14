@@ -2,9 +2,10 @@
 # Evals can be activated by uncommenting its config
 # python -m launchers.stool config=apps/main/configs/debug.yaml nodes=8 account=fair_amaia_cw_codegen qos=lowest
 
-dump_dir: /tmp/
+dump_dir: /tmp/blt-entropy
 name: "debug"
 steps: 100_000
+max_steps: null
 probe_freq: null
 seed: 777
 optim:
@@ -35,7 +36,6 @@ entropy_model:
   attn_impl: "xformers"
 
 data:
-  s3_profile: blt
   root_dir: ???
   sources:
     dclm_baseline_1.0: 1.0

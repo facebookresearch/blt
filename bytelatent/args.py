@@ -5,7 +5,6 @@ from typing import Any
 
 import numpy as np
 import yaml
-from omegaconf import OmegaConf
 from pydantic import BaseModel, ConfigDict
 
 from bytelatent.checkpoint import CheckpointArgs
@@ -36,19 +35,6 @@ logger = logging.getLogger()
 
 def get_rng_state(seed: int, rank: int, world_size: int) -> dict[str, Any]:
     return np.random.default_rng((seed, rank, world_size)).bit_generator.state
-
-
-def parse_args(args_cls):
-    cli_args = OmegaConf.from_cli()
-    file_cfg = OmegaConf.load(cli_args.config)
-    # We remove 'config' attribute from config as the underlying DataClass does not have it
-    del cli_args.config
-
-    default_cfg = OmegaConf.create(args_cls().model_dump())
-    cfg = OmegaConf.merge(default_cfg, file_cfg, cli_args)
-    cfg = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    pydantic_args = args_cls.model_validate(cfg)
-    return pydantic_args
 
 
 TRAIN_DATA_FILE_PATTERN = "*.chunk.*.jsonl"

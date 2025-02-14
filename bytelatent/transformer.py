@@ -1,6 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
-from dataclasses import dataclass
+import logging
 from typing import Optional, Tuple, Union
 
 import torch
@@ -14,7 +14,7 @@ from torch.distributed.tensor.parallel import (
     parallelize_module,
 )
 from torch.nn.attention.flex_attention import BlockMask, create_block_mask
-from xformers.ops import AttentionBias, fmha
+from xformers.ops import AttentionBias
 
 from bytelatent.base_transformer import (
     BaseTransformer,
@@ -23,12 +23,14 @@ from bytelatent.base_transformer import (
 )
 from bytelatent.model.utils import create_causal_mask
 
+logger = logging.getLogger()
+
 try:
     from apex.normalization.fused_layer_norm import FusedRMSNorm
 
     RMSNorm = FusedRMSNorm
 except (ImportError, ModuleNotFoundError):
-    print("Apex not found. Using nn.RMSNorm")
+    logging.debug("Apex not found. Using nn.RMSNorm")
     RMSNorm = nn.RMSNorm
 
 
