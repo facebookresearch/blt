@@ -19,10 +19,16 @@ from xformers.ops import AttentionBias, fmha
 from bytelatent.base_transformer import (
     BaseTransformer,
     BaseTransformerArgs,
-    RMSNorm,
     cross_entropy,
 )
 from bytelatent.model.utils import create_causal_mask
+
+try:
+    from apex.normalization.fused_layer_norm import FusedRMSNorm
+
+    RMSNorm = FusedRMSNorm
+except (ImportError, ModuleNotFoundError):
+    RMSNorm = nn.RMSNorm
 
 
 def attention_flops_per_token(n_layers, seq_len, dim, causal):

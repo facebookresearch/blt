@@ -12,11 +12,17 @@ from xformers.ops import AttentionBias
 from bytelatent.base_transformer import (
     BaseTransformer,
     BaseTransformerArgs,
-    RMSNorm,
     flex_attention_comp,
     repeat_kv,
 )
 from bytelatent.model.utils import create_causal_mask
+
+try:
+    from apex.normalization.fused_layer_norm import FusedRMSNorm
+
+    RMSNorm = FusedRMSNorm
+except (ImportError, ModuleNotFoundError):
+    RMSNorm = nn.RMSNorm
 
 logger = logging.getLogger()
 
@@ -44,7 +50,7 @@ class CrossAttention(nn.Module):
         self.n_kv_heads = n_kv_heads
         self.heads_per_group = self.n_heads // self.n_kv_heads
 
-        self.cross_attn_norm_q = RMSNorm(dim, eps=norm_eps)
+        self.cross_attn_norm_q = nn.RMSNorm(dim, eps=norm_eps)
         self.cross_attn_norm_kv = RMSNorm(dim, eps=norm_eps)
 
         self.wq = nn.Linear(

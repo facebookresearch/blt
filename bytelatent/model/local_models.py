@@ -14,13 +14,19 @@ from xformers.ops import AttentionBias
 from bytelatent.base_transformer import (
     BaseTransformerArgs,
     InitStdFactor,
-    RMSNorm,
     RotaryEmbedding,
     TransformerBlock,
 )
 from bytelatent.model.latent_transformer import CrossAttention
 from bytelatent.model.utils import create_causal_mask, downsample
 from bytelatent.tokenizers.blt_tokenizer import BOE_ID
+
+try:
+    from apex.normalization.fused_layer_norm import FusedRMSNorm
+
+    RMSNorm = FusedRMSNorm
+except (ImportError, ModuleNotFoundError):
+    RMSNorm = nn.RMSNorm
 
 logger = logging.getLogger()
 
