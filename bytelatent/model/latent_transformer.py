@@ -17,15 +17,14 @@ from bytelatent.base_transformer import (
 )
 from bytelatent.model.utils import create_causal_mask
 
+logger = logging.getLogger()
 try:
     from apex.normalization.fused_layer_norm import FusedRMSNorm
 
     RMSNorm = FusedRMSNorm
 except (ImportError, ModuleNotFoundError):
-    print("Apex not found. Using nn.RMSNorm")
+    logging.debug("Apex not found. Using nn.RMSNorm")
     RMSNorm = nn.RMSNorm
-
-logger = logging.getLogger()
 
 
 class CrossAttention(nn.Module):

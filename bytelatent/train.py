@@ -23,8 +23,9 @@ from torch.distributed._tensor import DTensor
 from torch.distributed.checkpoint.stateful import Stateful
 from torch.optim import lr_scheduler
 
-from bytelatent.args import TrainArgs, parse_args
+from bytelatent.args import TrainArgs
 from bytelatent.checkpoint import CheckpointManager, load_from_checkpoint
+from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
 from bytelatent.data.iterators.abstract_iterator import get_state_and_refresh
 from bytelatent.data.iterators.multiprocess_iterator import (
@@ -240,7 +241,9 @@ def set_preemption_flag(signum, frame):
     preemption_flag["flag"] = True
 
 
-def every_n_steps(train_state, freq, acc_step=None, acc_freq=None):
+def every_n_steps(train_state, freq: int, acc_step=None, acc_freq=None):
+    if freq < 0:
+        return False
     test = train_state.step % freq == 0
     if acc_step is not None:
         test = test and (train_state.acc_step == acc_step)
@@ -824,7 +827,7 @@ def main():
 
     Plus all the default values in TrainArgs dataclass.
     """
-    train_args = parse_args(TrainArgs)
+    train_args = parse_args_to_pydantic_model(TrainArgs)
     if train_args.debug_dynamo:
         import torch._dynamo
 
