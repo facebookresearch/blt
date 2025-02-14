@@ -63,11 +63,11 @@ Now launch a debug job to check if everything works. **The provided configuratio
 
 ```bash
 # stool stands for SLURM tool !
-python -m bytelatent.stool script=bytelatent.train config=apps/bytelatent/configs/debug.yaml nodes=1 partition=<partition>
+python -m bytelatent.stool script=bytelatent.train config=bytelatent/configs/debug.yaml nodes=1 partition=<partition>
 # if you want to launch locally you can use torchrun
-torchrun --nproc-per-node 8 -m bytelatent.train config=apps/bytelatent/configs/debug.yaml
+torchrun --nproc-per-node 8 -m bytelatent.train config=bytelatent/configs/debug.yaml
 # or you can also launch on 1 GPU
-python -m bytelatent.train  config=apps/bytelatent/configs/debug.yaml
+python -m bytelatent.train  config=bytelatent/configs/debug.yaml
 ```
 
 When using `stool`, if a job crashes, it can be relaunched using sbatch:
