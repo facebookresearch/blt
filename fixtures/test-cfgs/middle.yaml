@@ -1,0 +1,3 @@
+config: fixtures/test-cfgs/root.yaml
+b:
+  y: 10

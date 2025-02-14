@@ -5,18 +5,15 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 import torch
 from lm_eval import simple_evaluate
 from lm_eval.api.instance import Instance
 from lm_eval.api.model import LM
-from omegaconf import OmegaConf
-from pydantic import BaseModel, ConfigDict
 
-from bytelatent.args import EvalArgs, ValidationArgs, parse_args
+from bytelatent.args import EvalArgs, ValidationArgs
 from bytelatent.checkpoint import CONSOLIDATE_FOLDER, consolidate_checkpoints
+from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
 from bytelatent.distributed import (
     DistributedArgs,
@@ -29,7 +26,6 @@ from bytelatent.generate import (
     PackedCausalTransformerGenerator,
     load_consolidated_model_and_tokenizer,
 )
-from bytelatent.transformer import LMTransformer, LMTransformerArgs
 
 EVAL_FOLDER_NAME = "{:010d}"
 
