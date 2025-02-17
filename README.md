@@ -40,7 +40,7 @@ bash setup/create_env.sh
 sbatch setup/create_env.sh
 ```
 
-Once that is done your can activate the environment
+Once that is done you can activate the environment
 
 ```bash
 conda activate blt_<date>
