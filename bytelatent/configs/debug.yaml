@@ -56,13 +56,11 @@ model:
   recompute_attn: false
   custom_bwd: false
   layer_ckpt: "none"
-  patch_only_encoder: false
-  patch_only_decoder: false
   use_local_encoder_transformer: true
   init_use_gaussian: true
   init_use_depth: "current"
-  attn_bias_type: "block_causal"
   attn_impl: "xformers"
+  attn_bias_type: "block_causal"
   alpha_depth: "disabled"
   max_length: 256
   local_attention_window_len: 512
