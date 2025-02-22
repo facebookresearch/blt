@@ -17,3 +17,7 @@ class Tokenizer(abc.ABC):
     ) -> tuple[list[str], list[int]]:
         """Return the offsets of the tokens in the original text. Only used for evaluation."""
         pass
+
+    @abc.abstractmethod
+    def get_vocab_size(self) -> int:
+        pass

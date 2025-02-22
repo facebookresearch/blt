@@ -35,6 +35,9 @@ class SentencePieceTokenizer(Tokenizer):
         )
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
 
+    def get_vocab_size(self) -> int:
+        return self.n_words
+
     def encode(self, s: str, add_bos: bool | None = None, add_eos: bool | None = None):
         if add_bos is None:
             add_bos = self.add_bos

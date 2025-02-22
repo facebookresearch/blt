@@ -1,4 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
+import abc
 import logging
 import os
 from enum import Enum
@@ -572,7 +573,13 @@ class TransformerBlock(nn.Module):
         self.ffn_norm.reset_parameters()
 
 
-class BaseTransformer(nn.Module):
+class SequenceModelWithOutput(abc.ABC):
+    @abc.abstractmethod
+    def get_output_seq_len(self) -> int:
+        pass
+
+
+class BaseTransformer(nn.Module, SequenceModelWithOutput):
     def __init__(self, args: BaseTransformerArgs):
         super().__init__()
         self.dim = args.dim
@@ -592,6 +599,9 @@ class BaseTransformer(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(args.n_layers):
             self.layers.append(TransformerBlock(args))
+
+    def get_output_seq_len(self):
+        return self.max_seqlen
 
     def forward(
         self,

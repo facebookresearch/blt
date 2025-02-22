@@ -53,6 +53,9 @@ class TikTokenTokenizer(Tokenizer):
             f"#words: {self.n_words} - BOS ID: {self.bos_id} - EOS ID: {self.eos_id}"
         )
 
+    def get_vocab_size(self) -> int:
+        return self.n_words
+
     def encode(self, s: str, add_bos: bool, add_eos: bool):
         assert isinstance(s, str)
 

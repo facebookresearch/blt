@@ -101,6 +101,9 @@ class BltTokenizer(Tokenizer):
         self.vocab_size_unit_1 = vocab_size_unit_1
         self.n_words = vocab_size_unit_1 + self.offsetting_special_char
 
+    def get_vocab_size(self) -> int:
+        return self.n_words
+
     def encode(
         self, text: str, add_bos: bool | None = None, add_eos: bool | None = None
     ):
