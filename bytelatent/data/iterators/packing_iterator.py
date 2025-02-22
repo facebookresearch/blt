@@ -1,4 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
+from enum import Enum
 from typing import Any
 
 import numpy as np
@@ -12,6 +13,11 @@ from bytelatent.data.iterators.abstract_iterator import (
 from bytelatent.data.iterators.sampling_iterator import SamplingIteratorState
 
 
+class PackingMode(str, Enum):
+    BYTES = "bytes"
+    PATCHING = "patching"
+
+
 class PackingArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
     batch_size: int
@@ -20,7 +26,7 @@ class PackingArgs(BaseModel):
     max_length: int | None
     pad_to_max_length: bool
     enable_byte_ngrams: bool
-    tokenizer_name: str
+    packing_mode: PackingMode
 
 
 class PackingIteratorState(PydanticIteratorState):
@@ -155,10 +161,12 @@ class PackingIterator(StatefulIterator[Batch, PackingIteratorState]):
         )
 
     def create_iter(self):
-        if self.packing_args.tokenizer_name == "bytes":
+        if self.packing_args.packing_mode == PackingMode.BYTES:
             return self._create_iter_from_bytes()
-        else:
+        elif self.packing_args.packing_mode == PackingMode.PATCHING:
             return self._create_iter_from_patch_lengths()
+        else:
+            raise ValueError(f"Invalid patching mode: {self.packing_args.packing_mode}")
 
     def _create_iter_from_bytes(self):
         sequence_iter = self.sequence_iterator.create_iter()

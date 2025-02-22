@@ -71,6 +71,7 @@ data:
   root_dir: ???
   sources:
     dclm_baseline_1.0: 1.0
+  packing_mode: patching
   batch_size: 2
   prefetch_size: 64
   seq_len: 4096

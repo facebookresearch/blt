@@ -5,7 +5,6 @@ from typing import Any
 from pydantic import BaseModel
 
 from bytelatent.tokenizers.blt_tokenizer import BltTokenizer
-from bytelatent.tokenizers.byte_tokenizer import ByteTokenizer
 from bytelatent.tokenizers.tiktoken_tokenizer import TikTokenTokenizer
 
 try:
@@ -55,8 +54,6 @@ class TokenizerArgs(BaseModel):
             init_kwargs = self.init_kwargs
         if self.name == "blt":
             return BltTokenizer(**init_kwargs)
-        elif self.name == "bytes":
-            return ByteTokenizer(**init_kwargs)
         elif self.name == "mock":
             return MockTokenizer(**init_kwargs)
         elif self.name == "sp":
