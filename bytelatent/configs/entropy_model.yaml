@@ -39,6 +39,7 @@ data:
   root_dir: ???
   sources:
     dclm_baseline_1.0: 1.0
+  packing_mode: bytes
   batch_size: 2
   prefetch_size: 64
   # seqlen is in terms of patches and
@@ -55,7 +56,7 @@ data:
     # so pick the most efficient, so static
     patching_mode: byte
   tokenizer_args:
-    name: bytes
+    name: blt
 
 profiling:
   run: false
