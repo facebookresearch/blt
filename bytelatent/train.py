@@ -152,10 +152,11 @@ def validate_train_args(args: TrainArgs, output_size: int):
         logger.info(f"Setting checkpoint path to {args.checkpoint.path}")
         args.checkpoint.path = os.path.join(args.dump_dir, "checkpoints")
 
-    data_fs = get_fs(args.data.root_dir, s3_profile=args.data.s3_profile)
-    for source in args.data.sources:
-        data_path = os.path.join(args.data.root_dir, source)
-        assert data_fs.exists(data_path), f"{data_path} doesn't exist"
+    if args.data.root_dir is not None:
+        data_fs = get_fs(args.data.root_dir, s3_profile=args.data.s3_profile)
+        for source in args.data.sources:
+            data_path = os.path.join(args.data.root_dir, source)
+            assert data_fs.exists(data_path), f"{data_path} doesn't exist"
 
     if (
         args.distributed.dp_replicate
@@ -241,7 +242,9 @@ def set_preemption_flag(signum, frame):
     preemption_flag["flag"] = True
 
 
-def every_n_steps(train_state, freq, acc_step=None, acc_freq=None):
+def every_n_steps(train_state, freq: int, acc_step=None, acc_freq=None):
+    if freq < 0:
+        return False
     test = train_state.step % freq == 0
     if acc_step is not None:
         test = test and (train_state.acc_step == acc_step)
@@ -268,7 +271,7 @@ def train(args: TrainArgs):
         tokenizer = args.data.tokenizer_args.build()
         validate_train_args(
             args,
-            tokenizer.n_words,
+            tokenizer.get_vocab_size(),
         )
         dump_fs = get_fs(args.dump_dir, s3_profile=args.checkpoint.s3_profile)
         if get_is_master():
