@@ -46,6 +46,7 @@ from bytelatent.distributed import (
     requeue_slurm_job,
     setup_env,
     setup_torch_distributed,
+    to_py_num,
 )
 from bytelatent.eval import EVAL_FOLDER_NAME, launch_eval
 from bytelatent.logger import init_logger
@@ -87,13 +88,6 @@ def get_iterator_state_name(iterator_state):
         return "packing"
     else:
         raise ValueError(f"Unsupported iterator to get name from: {iterator_state}")
-
-
-def to_py_num(num: int | float | torch.Tensor | np.ndarray) -> int | float:
-    if isinstance(num, (torch.Tensor, np.ndarray)):
-        return num.item()
-    else:
-        return num
 
 
 # TODO: Make this pydantic based instead of data class based
@@ -152,57 +146,13 @@ def validate_train_args(args: TrainArgs, output_size: int):
         logger.info(f"Setting checkpoint path to {args.checkpoint.path}")
         args.checkpoint.path = os.path.join(args.dump_dir, "checkpoints")
 
-    data_fs = get_fs(args.data.root_dir, s3_profile=args.data.s3_profile)
-    for source in args.data.sources:
-        data_path = os.path.join(args.data.root_dir, source)
-        assert data_fs.exists(data_path), f"{data_path} doesn't exist"
+    if args.data.root_dir is not None:
+        data_fs = get_fs(args.data.root_dir, s3_profile=args.data.s3_profile)
+        for source in args.data.sources:
+            data_path = os.path.join(args.data.root_dir, source)
+            assert data_fs.exists(data_path), f"{data_path} doesn't exist"
 
-    if (
-        args.distributed.dp_replicate
-        * args.distributed.dp_shard
-        * args.distributed.tp_size
-        != get_world_size()
-    ):
-        logging.info("Modifying TrainArgs distributed config")
-        assert get_world_size() % args.distributed.dp_shard == 0
-        logging.info("World size: %s", get_world_size())
-        logging.info(
-            "Existing setting: train_args.distributed.dp_shard=%s",
-            args.distributed.dp_shard,
-        )
-        logging.info(
-            "Setting train_args.distributed.dp_replicate=%s, was dp_replicate=%s",
-            get_world_size() // args.distributed.dp_shard,
-            args.distributed.dp_replicate,
-        )
-        args.distributed.dp_replicate = get_world_size() // args.distributed.dp_shard
-
-        logging.info(
-            "Changing dp_replicate from %s to %s, to account for tp_size=%s",
-            args.distributed.dp_replicate,
-            args.distributed.dp_replicate // args.distributed.tp_size,
-            args.distributed.tp_size,
-        )
-        assert args.distributed.dp_replicate % args.distributed.tp_size == 0
-        args.distributed.dp_replicate = (
-            args.distributed.dp_replicate // args.distributed.tp_size
-        )
-
-        logger.warning(
-            f"Setting Data Parallel size to {args.distributed.dp_replicate * args.distributed.dp_shard}"
-        )
-        assert (
-            args.distributed.dp_replicate
-            * args.distributed.dp_shard
-            * args.distributed.tp_size
-            == get_world_size()
-        )
-
-        if args.distributed.fsdp_type == "no_shard":
-            assert (
-                args.distributed.dp_shard == 1
-                and args.distributed.dp_replicate == get_world_size()
-            )
+    args.distributed.configure_world()
 
     if args.model is not None:
         args.model.max_seqlen = args.data.seq_len
@@ -241,7 +191,9 @@ def set_preemption_flag(signum, frame):
     preemption_flag["flag"] = True
 
 
-def every_n_steps(train_state, freq, acc_step=None, acc_freq=None):
+def every_n_steps(train_state, freq: int, acc_step=None, acc_freq=None):
+    if freq < 0:
+        return False
     test = train_state.step % freq == 0
     if acc_step is not None:
         test = test and (train_state.acc_step == acc_step)
@@ -268,7 +220,7 @@ def train(args: TrainArgs):
         tokenizer = args.data.tokenizer_args.build()
         validate_train_args(
             args,
-            tokenizer.n_words,
+            tokenizer.get_vocab_size(),
         )
         dump_fs = get_fs(args.dump_dir, s3_profile=args.checkpoint.s3_profile)
         if get_is_master():

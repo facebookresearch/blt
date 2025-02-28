@@ -55,7 +55,7 @@ class LoggingArgs(BaseModel):
 class MetricLogger:
     def __init__(
         self,
-        outdir: Path,
+        outdir: str,
         # args: TrainArgs
         args: Any | None = None,
         fs: fsspec.AbstractFileSystem | None = None,

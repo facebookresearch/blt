@@ -15,6 +15,7 @@ from functools import lru_cache, partial, reduce
 from itertools import chain
 from typing import List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 
 # for no recompute ops
@@ -77,6 +78,40 @@ class DistributedArgs(BaseModel):
     compile_cache_size_limit: int = 8
 
     spawn_method: str = "forkserver"
+
+    def configure_world(self):
+        pass
+        if self.dp_replicate * self.dp_shard * self.tp_size != get_world_size():
+            logging.info("Modifying TrainArgs distributed config")
+            assert get_world_size() % self.dp_shard == 0
+            logging.info("World size: %s", get_world_size())
+            logging.info(
+                "Existing setting: train_args.distributed.dp_shard=%s",
+                self.dp_shard,
+            )
+            logging.info(
+                "Setting train_args.distributed.dp_replicate=%s, was dp_replicate=%s",
+                get_world_size() // self.dp_shard,
+                self.dp_replicate,
+            )
+            self.dp_replicate = get_world_size() // self.dp_shard
+
+            logging.info(
+                "Changing dp_replicate from %s to %s, to account for tp_size=%s",
+                self.dp_replicate,
+                self.dp_replicate // self.tp_size,
+                self.tp_size,
+            )
+            assert self.dp_replicate % self.tp_size == 0
+            self.dp_replicate = self.dp_replicate // self.tp_size
+
+            logger.warning(
+                f"Setting Data Parallel size to {self.dp_replicate * self.dp_shard}"
+            )
+            assert self.dp_replicate * self.dp_shard * self.tp_size == get_world_size()
+
+            if self.fsdp_type == "no_shard":
+                assert self.dp_shard == 1 and self.dp_replicate == get_world_size()
 
 
 class EnvironmentArgs(BaseModel):
@@ -149,6 +184,13 @@ def dist_mean_dict(x):
         r[k] = dist_mean(x[k])
         r[k] = r[k].item() if (r[k].dim() == 0) else r[k].tolist()
     return r
+
+
+def to_py_num(num: int | float | torch.Tensor | np.ndarray) -> int | float:
+    if isinstance(num, (torch.Tensor, np.ndarray)):
+        return num.item()
+    else:
+        return num
 
 
 @lru_cache()
