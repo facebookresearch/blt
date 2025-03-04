@@ -13,7 +13,10 @@ from bytelatent.data.file_util import get_fs
 from bytelatent.data.iterators.abstract_iterator import StatefulIterator
 from bytelatent.data.iterators.arrow_iterator import ArrowFileIterator
 from bytelatent.data.iterators.looping_iterator import LoopingIterator
-from bytelatent.data.iterators.multiprocess_iterator import MultiprocessIterator
+from bytelatent.data.iterators.multiprocess_iterator import (
+    MultiprocessIterator,
+    PersistType,
+)
 from bytelatent.data.iterators.packing_iterator import (
     PackingArgs,
     PackingIterator,
@@ -130,6 +133,7 @@ class DataloaderArgs(BaseModel):
     add_bos: bool = True
     add_eos: bool = True
     load_async: bool = True
+    async_persist_type: PersistType = PersistType.EXACT
     prefetch_size: int = 64
     preprocess_dir: str | None = None
     dataset_files: list[str] | None = None
@@ -215,7 +219,9 @@ class DataloaderArgs(BaseModel):
         packing_iterator = PackingIterator(sampling_iterator, packing_args=packing_args)
         if self.load_async:
             mp_iterator = MultiprocessIterator(
-                packing_iterator, n_batches_to_prefetch=self.prefetch_size
+                packing_iterator,
+                n_batches_to_prefetch=self.prefetch_size,
+                persist_type=self.async_persist_type,
             )
             return mp_iterator
         else:
