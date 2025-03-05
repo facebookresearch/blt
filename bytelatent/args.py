@@ -270,6 +270,10 @@ class EvalArgs(BaseModel):
     dump_dir: str | None = None
     ckpt_dir: str | None = None
     metric_log_dir: str | None = None
+
+    run_ppl: bool = True
+    run_tasks: bool = False
+
     generator: PackedCausalTransformerGeneratorArgs = (
         PackedCausalTransformerGeneratorArgs()
     )

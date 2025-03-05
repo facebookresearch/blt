@@ -387,8 +387,7 @@ def load_consolidated_model_and_tokenizer(
 ):
     train_args_path = os.path.join(consolidated_path, "params.json")
     fs = get_fs(train_args_path)
-    with fs.open(train_args_path) as f:
-        train_args = TrainArgs.model_validate_json(f.read())
+    train_args = TrainArgs.model_validate_json(fs.read_text(train_args_path))
 
     if train_args.train_entropy_model:
         model_args = train_args.entropy_model
@@ -401,7 +400,8 @@ def load_consolidated_model_and_tokenizer(
         train_args.distributed.model_dtype
     ]
     tokenizer = train_args.data.tokenizer_args.build()
-    st_dict = torch.load(consolidated_path / CONSOLIDATE_NAME, weights_only=True)
+    with fs.open(os.path.join(consolidated_path, CONSOLIDATE_NAME)) as f:
+        st_dict = torch.load(f, weights_only=True)
     model.load_state_dict(st_dict["model"])
     model = model.cuda().eval()
     for param in model.parameters():
