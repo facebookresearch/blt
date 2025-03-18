@@ -308,8 +308,7 @@ class LocalEncoder(LocalModelBase):
             kv=h,
             mask=cross_mask,
         )
-        patch_embeds += patch_embeds_cross
-        return patch_embeds
+        return patch_embeds + patch_embeds_cross
 
 
 class LocalDecoder(LocalModelBase):
