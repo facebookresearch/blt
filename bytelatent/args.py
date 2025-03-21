@@ -7,7 +7,7 @@ import numpy as np
 import yaml
 from pydantic import BaseModel, ConfigDict
 
-from bytelatent.checkpoint import CheckpointArgs
+from bytelatent.checkpoint import CONSOLIDATE_FOLDER, CheckpointArgs
 from bytelatent.data.data_types import Batch
 from bytelatent.data.file_util import get_fs
 from bytelatent.data.iterators.abstract_iterator import StatefulIterator
@@ -270,7 +270,10 @@ class EvalArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
     dump_dir: str | None = None
     ckpt_dir: str | None = None
+    entropy_ckpt_dir: str | None = None
     metric_log_dir: str | None = None
+
+    prompts: list[str] | None = None
 
     run_ppl: bool = True
     run_tasks: bool = False
@@ -284,6 +287,8 @@ class EvalArgs(BaseModel):
 
     global_step: int | None = None  # for in-training evaluation
     s3_profile: str | None = None
+    consolidate_if_needed: bool = False
+    consolidate_folder: str = CONSOLIDATE_FOLDER
 
 
 class TrainArgs(BaseModel):

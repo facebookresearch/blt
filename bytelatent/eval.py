@@ -243,9 +243,20 @@ def launch_eval(eval_args: EvalArgs):
     ):
         consolidate_path = eval_args.ckpt_dir
     else:
-        consolidate_path = os.path.join(eval_args.ckpt_dir, CONSOLIDATE_FOLDER)
-        if not fs.exists(consolidate_path) and get_global_rank() == 0:
-            consolidate_path = consolidate_checkpoints(fs, eval_args.ckpt_dir)
+        if eval_args.consolidate_if_needed:
+            logger.info(
+                "Found a model checkpoint, but it has not been consolidated.... so consolidating the checkpoint"
+            )
+            consolidate_path = os.path.join(
+                eval_args.ckpt_dir, eval_args.consolidate_folder
+            )
+            if not fs.exists(consolidate_path) and get_global_rank() == 0:
+                consolidate_path = consolidate_checkpoints(fs, eval_args.ckpt_dir)
+            logger.info("Model consolidated to: %s", consolidate_path)
+        else:
+            raise ValueError(
+                "Did not find a consolidated checkpoint and consolidate_if_needed is False"
+            )
 
     fs.mkdirs(eval_args.dump_dir, exist_ok=True)
     with fs.open(os.path.join(eval_args.dump_dir, "config.yaml"), "w") as f:

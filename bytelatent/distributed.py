@@ -162,6 +162,12 @@ def dist_max(x: Union[int, float], mesh: DeviceMesh = None):
     return tensor
 
 
+def dist_min(x: Union[int, float], mesh: DeviceMesh = None):
+    tensor = torch.tensor(x).cuda()
+    dist.all_reduce(tensor, op=ReduceOp.MIN, group=mesh.get_group() if mesh else None)
+    return tensor
+
+
 def dist_sum(
     x: Union[int, float], mesh: DeviceMesh = None, reduce_dtype: torch.dtype = None
 ):

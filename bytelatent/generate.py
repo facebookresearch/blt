@@ -10,7 +10,7 @@ from torch.nn import functional as F
 from torch.nn.attention.flex_attention import create_block_mask
 from tqdm import tqdm
 
-from bytelatent.args import PackedCausalTransformerGeneratorArgs, TrainArgs
+from bytelatent.args import EvalArgs, PackedCausalTransformerGeneratorArgs, TrainArgs
 from bytelatent.base_transformer import (
     Attention,
     causal_mask,
@@ -18,8 +18,14 @@ from bytelatent.base_transformer import (
     lengths_to_local_ids,
     lengths_to_start_ids,
 )
-from bytelatent.checkpoint import CONSOLIDATE_NAME
+from bytelatent.checkpoint import (
+    CONSOLIDATE_FOLDER,
+    CONSOLIDATE_NAME,
+    consolidate_checkpoints,
+)
+from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
+from bytelatent.distributed import get_global_rank
 from bytelatent.model.blt import ByteLatentTransformer
 from bytelatent.tokenizers.abstract_tokenizer import Tokenizer
 from bytelatent.transformer import LMTransformer
@@ -411,15 +417,25 @@ def load_consolidated_model_and_tokenizer(
 
 def main():
     # Load CLI arguments (overrides) and combine with a YAML config
-    cfg = OmegaConf.from_cli()
-    gen_cfg = dataclass_from_dict(
-        PackedCausalTransformerGeneratorArgs, cfg, strict=False
+    eval_args = parse_args_to_pydantic_model(EvalArgs)
+
+    fs = get_fs(eval_args.ckpt_dir, s3_profile=eval_args.s3_profile)
+    if (
+        fs.exists(eval_args.ckpt_dir)
+        and fs.exists(os.path.join(eval_args.ckpt_dir, "params.json"))
+        and len(fs.glob(os.path.join(eval_args.ckpt_dir, "*.pth"))) != 0
+    ):
+        consolidate_path = eval_args.ckpt_dir
+    else:
+        consolidate_path = os.path.join(eval_args.ckpt_dir, CONSOLIDATE_FOLDER)
+        if not fs.exists(consolidate_path) and get_global_rank() == 0:
+            consolidate_path = consolidate_checkpoints(fs, eval_args.ckpt_dir)
+
+    model, tokenizer, train_cfg = load_consolidated_model_and_tokenizer(
+        consolidate_path
     )
-    print(cfg)
 
-    model, tokenizer, _ = load_consolidated_model_and_tokenizer(cfg.ckpt)
-
-    generator = PackedCausalTransformerGenerator(gen_cfg, model, tokenizer)
+    generator = PackedCausalTransformerGenerator(eval_args.generator, model, tokenizer)
 
     # Allow multiple prompts
     prompts = []

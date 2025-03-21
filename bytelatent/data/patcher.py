@@ -1,5 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 import math
+import os
 import time
 from collections import defaultdict
 from contextlib import nullcontext
@@ -476,7 +477,11 @@ class Patcher:
                 patcher_args.entropy_model_checkpoint_dir is not None
             ), "Cannot require realtime patching without an entropy model checkpoint"
             entropy_model = load_entropy_model(
-                patcher_args.entropy_model_checkpoint_dir
+                patcher_args.entropy_model_checkpoint_dir,
+                os.path.join(
+                    patcher_args.entropy_model_checkpoint_dir,
+                    "consolidated/consolidated.pth",
+                ),
             )
             entropy_model, _ = to_device(entropy_model, patcher_args.patching_device)
             self.entropy_model = entropy_model
