@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Any, Optional
 
 import torch
-from pydantic import ConfigDict, model_validator
+from pydantic import model_validator
 from torch import nn
 from torch.nn.attention.flex_attention import create_block_mask
 from typing_extensions import Self
@@ -13,13 +13,14 @@ from bytelatent.base_transformer import (
     BaseTransformerArgs,
     InitStdFactor,
     SequenceModelWithOutput,
-    TransformerBlock,
 )
 from bytelatent.data.patcher import Patcher, PatcherArgs
 from bytelatent.model.latent_transformer import GlobalTransformer
 from bytelatent.model.local_models import LocalDecoder, LocalEncoder, LocalModelArgs
 from bytelatent.model.utils import downsample
 from bytelatent.tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
+
+from huggingface_hub import PyTorchModelHubMixin
 
 
 def attention_flops_per_token(n_layers, seq_len, dim, causal):
@@ -767,7 +768,10 @@ def compute_hash_embeddings(
     return local_encoder_embeds
 
 
-class ByteLatentTransformer(nn.Module, SequenceModelWithOutput):
+class ByteLatentTransformer(nn.Module, SequenceModelWithOutput, PyTorchModelHubMixin,
+                            repo_url="https://github.com/facebookresearch/blt",
+                            pipeline_tag="text-generation",
+                            license="cc-by-nc-sa-4.0"):
     """
     The ByteLatentTransformer (BLT) is a byte-level language model architecture that processes byte sequences
     by dynamically segmenting them into patches. It uses a combination of local encoders, global transformers,
