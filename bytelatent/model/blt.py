@@ -771,7 +771,7 @@ def compute_hash_embeddings(
 class ByteLatentTransformer(nn.Module, SequenceModelWithOutput, PyTorchModelHubMixin,
                             repo_url="https://github.com/facebookresearch/blt",
                             pipeline_tag="text-generation",
-                            license="cc-by-nc-sa-4.0"):
+                            license="other"):
     """
     The ByteLatentTransformer (BLT) is a byte-level language model architecture that processes byte sequences
     by dynamically segmenting them into patches. It uses a combination of local encoders, global transformers,
