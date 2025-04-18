@@ -15,6 +15,7 @@ from torch.distributed.tensor.parallel import (
 )
 from torch.nn.attention.flex_attention import BlockMask, create_block_mask
 from xformers.ops import AttentionBias
+from huggingface_hub import PyTorchModelHubMixin
 
 from bytelatent.base_transformer import (
     BaseTransformer,
@@ -60,7 +61,16 @@ class LMTransformerArgs(BaseTransformerArgs):
     sliding_window: int | None = None
 
 
-class LMTransformer(BaseTransformer):
+class LMTransformer(
+    BaseTransformer,
+    PyTorchModelHubMixin,
+    repo_url="https://github.com/facebookresearch/blt",
+    paper_url="https://arxiv.org/abs/2412.09871",
+    pipeline_tag="text-generation",
+    license="other",
+    license_name="fair-noncommercial-research-license",
+    license_link="https://huggingface.co/facebook/blt/blob/main/LICENSE",
+):
     def __init__(self, args: LMTransformerArgs):
         super().__init__(args)
         self.weight_tying = args.weight_tying
@@ -80,6 +90,11 @@ class LMTransformer(BaseTransformer):
 
         if args.weight_tying:
             self.output.weight = self.embeddings.tok_embeddings.weight
+
+    def push_to_hub(self, *args, **kwargs):
+        raise ValueError(
+            "For meta authors: Do not push BLT weights with this, save weights with save_pretrained() then push them manually to HF hub to ensure the repository metadata is correct."
+        )
 
     def forward(
         self,

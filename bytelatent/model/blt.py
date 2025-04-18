@@ -768,10 +768,17 @@ def compute_hash_embeddings(
     return local_encoder_embeds
 
 
-class ByteLatentTransformer(nn.Module, SequenceModelWithOutput, PyTorchModelHubMixin,
-                            repo_url="https://github.com/facebookresearch/blt",
-                            pipeline_tag="text-generation",
-                            license="other"):
+class ByteLatentTransformer(
+    nn.Module,
+    SequenceModelWithOutput,
+    PyTorchModelHubMixin,
+    repo_url="https://github.com/facebookresearch/blt",
+    paper_url="https://arxiv.org/abs/2412.09871",
+    pipeline_tag="text-generation",
+    license="other",
+    license_name="fair-noncommercial-research-license",
+    license_link="https://huggingface.co/facebook/blt/blob/main/LICENSE",
+):
     """
     The ByteLatentTransformer (BLT) is a byte-level language model architecture that processes byte sequences
     by dynamically segmenting them into patches. It uses a combination of local encoders, global transformers,
@@ -860,6 +867,11 @@ class ByteLatentTransformer(nn.Module, SequenceModelWithOutput, PyTorchModelHubM
                     max_patch_length=args.max_patch_length,
                 )
             )
+
+    def push_to_hub(self, *args, **kwargs):
+        raise ValueError(
+            "For meta authors: Do not push BLT weights with this, save weights with save_pretrained() then push them manually to HF hub to ensure the repository metadata is correct."
+        )
 
     def get_output_seq_len(self):
         return self.max_seqlen
