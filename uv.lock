@@ -166,6 +166,7 @@ dependencies = [
     { name = "datatrove" },
     { name = "fsspec" },
     { name = "huggingface-hub" },
+    { name = "jinja2" },
     { name = "lm-eval" },
     { name = "luigi" },
     { name = "numpy" },
@@ -201,6 +202,7 @@ requires-dist = [
     { name = "datatrove", specifier = ">=0.5.0" },
     { name = "fsspec", specifier = ">=2024.6.1" },
     { name = "huggingface-hub", specifier = "==0.30.*" },
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "lm-eval", specifier = ">=0.4.8" },
     { name = "luigi", specifier = ">=3.6.0" },
     { name = "numpy", specifier = ">=2.1.2" },
@@ -2029,7 +2031,7 @@ wheels = [
 
 [[package]]
 name = "xformers"
-version = "0.0.29+de742ec.d20250502"
+version = "0.0.29+de742ec.d20250507"
 source = { git = "https://github.com/facebookresearch/xformers.git?rev=de742ec3d64bd83b1184cc043e541f15d270c148#de742ec3d64bd83b1184cc043e541f15d270c148" }
 dependencies = [
     { name = "numpy" },

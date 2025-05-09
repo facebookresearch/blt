@@ -1,0 +1,33 @@
+#!/bin/bash
+
+{{ exclude }}
+{{ qos }}
+{{ account }}
+{{ constraint }}
+#SBATCH --job-name={{ name }}
+#SBATCH --nodes={{ nodes }}
+#SBATCH --gres=gpu:{{ ngpus }}
+#SBATCH --cpus-per-gpu={{ ncpu }}
+#SBATCH --time={{ time }}
+#SBATCH --partition={{ partition }}
+#SBATCH --mem={{ mem }}
+
+#SBATCH --output={{ dump_dir }}/logs/%j/%j.stdout
+#SBATCH --error={{ dump_dir }}/logs/%j/%j.stderr
+
+#SBATCH --open-mode=append
+#SBATCH --signal=USR2@120
+#SBATCH --distribution=block
+
+{% if use_conda %}
+# Mimic the effect of "conda init", which doesn't work for scripts
+eval "$({{ conda_exe }} shell.bash hook)"
+source activate {{ conda_env_path }}
+{% endif %}
+
+{{ go_to_code_dir }}
+
+export OMP_NUM_THREADS=1
+export LAUNCH_WITH="SBATCH"
+export DUMP_DIR={{ dump_dir }}
+srun {{ log_output }} -n {{ tasks }} -N {{ nodes_per_run }} {{ python_command }} -u -m {{ script }} config=$DUMP_DIR/base_config.yaml dump_dir=$DUMP_DIR name={{ name }}

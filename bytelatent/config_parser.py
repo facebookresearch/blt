@@ -1,9 +1,10 @@
 import copy
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Any
 
 import omegaconf
 from omegaconf import DictConfig, OmegaConf
 from pydantic import BaseModel
+from pydantic_core import PydanticUndefined
 
 
 def parse_file_config(path: str) -> DictConfig:
@@ -68,11 +69,23 @@ def parse_args_with_default(
 
 T = TypeVar("T", bound=BaseModel)
 
+def get_pydantic_default_args(args_cls: Type[T]) -> dict[str, Any]:
+    defaults = {}
+    for field, info in args_cls.model_fields.items():
+        if info.default != PydanticUndefined:
+            defaults[field] = info.default
+    return defaults
 
 def parse_args_to_pydantic_model(
-    args_cls: Type[T], cli_args: DictConfig | None = None
+    args_cls: Type[T], cli_args: DictConfig | None = None, instantiate_default_cls: bool = True
 ) -> T:
-    default_cfg = OmegaConf.create(args_cls().model_dump())
+    if instantiate_default_cls:
+        default_cfg = OmegaConf.create(args_cls().model_dump())
+    else:
+        default_cfg = OmegaConf.create(get_pydantic_default_args(args_cls))
     parsed_cfg = parse_args_with_default(default_cfg=default_cfg, cli_args=cli_args)
+    print(default_cfg)
+    print()
+    print(parsed_cfg)
     pydantic_args = args_cls.model_validate(parsed_cfg)
     return pydantic_args

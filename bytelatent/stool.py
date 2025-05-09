@@ -6,21 +6,28 @@ import shutil
 import subprocess
 from typing import Any, Dict
 
+import jinja2
 from omegaconf import OmegaConf
 from pydantic import BaseModel
 
+from bytelatent.config_parser import parse_args_to_pydantic_model
+
 
 class StoolArgs(BaseModel):
-    name: str = None
-    dump_dir: str = None
-    config: Any = None
+    name: str
+    dump_dir: str
+    # model_config is a reserved name by pydantic, so use this instead
+    model_conf: Any = None
     launcher: str = "sbatch"  # Can be sbatch or bash if already in salloc
+    python_command: str = "python"
+    use_conda: bool = True
     script: str = "apps.main.train"  # The script to run.
     copy_code: bool = True  # Wether to copy code to dump dir
     dirs_exists_ok: bool = (
         False  # Wether to copy new code and config and run regardless that dir exists
     )
-    override: bool = False  # Wether to delete dump dir and restart
+    override: bool = False  # Whether to delete dump dir and restart, requires confirmation
+    force_override: bool = False # Does not require interaction
     nodes: int = -1  # The number of nodes to run the job on.
     ngpu: int = 8  # The number of GPUs required per node.
     ncpu: int = 16  # The number of CPUs allocated per GPU.
@@ -33,40 +40,8 @@ class StoolArgs(BaseModel):
     qos: str = ""
     partition: str = "learn"
     stdout: bool = False
+    dry_run: bool = False
 
-
-SBATCH_COMMAND = """#!/bin/bash
-
-{exclude}
-{qos}
-{account}
-{constraint}
-#SBATCH --job-name={name}
-#SBATCH --nodes={nodes}
-#SBATCH --gres=gpu:{ngpus}
-#SBATCH --cpus-per-gpu={ncpu}
-#SBATCH --time={time}
-#SBATCH --partition={partition}
-#SBATCH --mem={mem}
-
-#SBATCH --output={dump_dir}/logs/%j/%j.stdout
-#SBATCH --error={dump_dir}/logs/%j/%j.stderr
-
-#SBATCH --open-mode=append
-#SBATCH --signal=USR2@120
-#SBATCH --distribution=block
-
-# Mimic the effect of "conda init", which doesn't work for scripts
-eval "$({conda_exe} shell.bash hook)"
-source activate {conda_env_path}
-
-{go_to_code_dir}
-
-export OMP_NUM_THREADS=1
-export LAUNCH_WITH="SBATCH"
-export DUMP_DIR={dump_dir}
-srun {log_output} -n {tasks} -N {nodes_per_run} python -u -m {script} config=$DUMP_DIR/base_config.yaml dump_dir=$DUMP_DIR name={name}
-"""
 
 
 def copy_dir(input_dir: str, output_dir: str) -> None:
@@ -75,6 +50,7 @@ def copy_dir(input_dir: str, output_dir: str) -> None:
     assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
     rsync_cmd = (
         f"rsync -rmt --copy-links "
+        f"--exclude .venv "
         f"--include '**/' "
         f"--include '*.py' "
         f"--exclude='*' "
@@ -151,28 +127,31 @@ def validate_args(args) -> None:
 def launch_job(args: StoolArgs):
     # Set up args default and validate them depending on the cluster or partition requested
     validate_args(args)
-    job_name = args.name or args.config["name"]
-    dump_dir = os.path.join(args.dump_dir, job_name) or args.config["dump_dir"]
+    job_name = args.name or args.model_conf["name"]
+    dump_dir = os.path.join(args.dump_dir, job_name) or args.model_conf["dump_dir"]
     print("Creating directories...")
-    os.makedirs(dump_dir, exist_ok=args.dirs_exists_ok or args.override)
-    if args.override:
-        confirm = input(
-            f"Are you sure you want to delete the directory '{dump_dir}'? This action cannot be undone. (yes/no): "
-        )
-        if confirm.lower() == "yes":
+    os.makedirs(dump_dir, exist_ok=args.dirs_exists_ok or args.override or args.force_override)
+    if args.override or args.force_override:
+        if args.force_override:
             shutil.rmtree(dump_dir)
             print(f"Directory '{dump_dir}' has been deleted.")
         else:
-            print("Operation cancelled.")
-            return
+            confirm = input(
+                f"Are you sure you want to delete the directory '{dump_dir}'? This action cannot be undone. (yes/no): "
+            )
+            if confirm.lower() == "yes":
+                shutil.rmtree(dump_dir)
+                print(f"Directory '{dump_dir}' has been deleted.")
+            else:
+                print("Operation cancelled.")
+                return
     if args.copy_code:
         os.makedirs(f"{dump_dir}/code", exist_ok=args.dirs_exists_ok)
         print("Copying code ...")
         copy_dir(os.getcwd(), f"{dump_dir}/code")
 
     print("Saving config file ...")
-    with open(f"{dump_dir}/base_config.yaml", "w") as cfg:
-        cfg.write(OmegaConf.to_yaml(args.config))
+    shutil.copy(args.model_conf, f"{dump_dir}/base_config.yaml")
 
     conda_exe = os.environ.get("CONDA_EXE", "conda")
     conda_env_path = os.path.dirname(os.path.dirname(args.anaconda))
@@ -181,7 +160,12 @@ def launch_job(args: StoolArgs):
         if not args.stdout
         else ""
     )
-    sbatch = SBATCH_COMMAND.format(
+    env = jinja2.Environment(
+        loader=jinja2.PackageLoader('bytelatent'),
+        autoescape=jinja2.select_autoescape(),
+    )
+    template = env.get_template('stool_template.sh.jinja')
+    sbatch_jinja = template.render(
         name=job_name,
         script=args.script,
         dump_dir=dump_dir,
@@ -197,18 +181,23 @@ def launch_job(args: StoolArgs):
         exclude=args.exclude,
         time=args.time,
         partition=args.partition,
+        python_command=args.python_command,
         conda_exe=conda_exe,
         conda_env_path=conda_env_path,
+        use_conda=args.use_conda,
         log_output=log_output,
         go_to_code_dir=f"cd {dump_dir}/code/" if args.copy_code else "",
     )
 
     print("Writing sbatch command ...")
     with open(f"{dump_dir}/submit.slurm", "w") as f:
-        f.write(sbatch)
+        f.write(sbatch_jinja)
 
-    print("Submitting job ...")
-    os.system(f"{args.launcher} {dump_dir}/submit.slurm")
+    if args.dry_run:
+        print("Dry run mode enabled. Not submitting job.")
+    else:
+        print("Submitting job ...")
+        os.system(f"{args.launcher} {dump_dir}/submit.slurm")
 
     print("Done.")
 
@@ -216,22 +205,6 @@ def launch_job(args: StoolArgs):
 if __name__ == "__main__":
     """
     The command line interface here uses OmegaConf https://omegaconf.readthedocs.io/en/2.3_branch/usage.html#from-command-line-arguments
-    This accepts arguments as a dot list
-    So if the dataclass looks like
-
-    @dataclass
-    class DummyArgs:
-        name: str
-        mode: LMTransformerArgs
-
-    @dataclass
-    class LMTransformerArgs:
-        dim: int
-
-    Then you can pass model.dim=32 to change values in LMTransformerArgs
-    or just name=tictac for top level attributes.
     """
-    args = OmegaConf.from_cli()
-    args.config = OmegaConf.load(args.config)
-    args = StoolArgs.model_validate(args)
+    args = parse_args_to_pydantic_model(StoolArgs, instantiate_default_cls=False)
     launch_job(args)
