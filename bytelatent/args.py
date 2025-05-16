@@ -156,7 +156,11 @@ class DataloaderArgs(BaseModel):
         self, rank: int, world_size: int
     ) -> dict[str, SequenceIterator]:
         sequence_packing_args = SequencePackingArgs(
-            output_seq_len=self.seq_len,
+            output_seq_len=(
+                self.seq_len + 1
+                if self.patcher_args.patching_mode == PatchingModeEnum.byte
+                else self.seq_len
+            ),
             buffer_size=self.buffer_size,
         )
         source_to_sequence_iterator: dict[str, SequenceIterator] = {}
