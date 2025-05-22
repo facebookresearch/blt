@@ -201,9 +201,10 @@ class PackingIterator(StatefulIterator[Batch, PackingIteratorState]):
             m = np.zeros((batch_size, seq_len), dtype=np.bool)
 
             for i, tok_seq in enumerate(tokens):
-                x[i, : len(tok_seq)] = tok_seq
+                x[i, : len(tok_seq) - 1] = tok_seq[:-1]
                 y[i, : len(tok_seq) - 1] = tok_seq[1:]
-                m[i, : len(tok_seq)] = masks[i]
+                m[i, : len(tok_seq)] = masks[i][1:]
+
             batch = Batch(x=x, y=y, mask=m)
             assert (
                 batch.mask is None or np.sum(x != pad_id) == batch.mask.sum()
