@@ -1,14 +1,9 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
-from enum import Enum, auto
+from enum import auto, Enum
 from typing import Any, Optional
 
 import torch
-from huggingface_hub import PyTorchModelHubMixin
-from pydantic import model_validator
-from torch import nn
-from torch.nn.attention.flex_attention import create_block_mask
-from typing_extensions import Self
 
 from bytelatent.base_transformer import (
     BaseTransformerArgs,
@@ -18,8 +13,15 @@ from bytelatent.base_transformer import (
 from bytelatent.data.patcher import Patcher, PatcherArgs
 from bytelatent.model.latent_transformer import GlobalTransformer
 from bytelatent.model.local_models import LocalDecoder, LocalEncoder, LocalModelArgs
-from bytelatent.model.utils import downsample
+from bytelatent.model.utils import check_param_device, downsample
 from bytelatent.tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
+from huggingface_hub import PyTorchModelHubMixin
+
+from numpy.random import f
+from pydantic import model_validator
+from torch import nn
+from torch.nn.attention.flex_attention import create_block_mask
+from typing_extensions import Self
 
 
 def attention_flops_per_token(n_layers, seq_len, dim, causal):
@@ -155,6 +157,9 @@ primes = [
 
 
 def rolling_polynomial_hash(t, hash_func_nb: int = 0):
+    if hash_func_nb >= len(primes):
+        print(f"len(primes): {len(primes)}, hash_func_nb: {hash_func_nb}")
+
     prime = torch.tensor(primes[hash_func_nb], dtype=torch.int64, device=t.device)
     prime_powers = torch.stack([prime**i for i in range(t.shape[-1])])
     return torch.sum(t * prime_powers, dim=-1)
@@ -239,6 +244,9 @@ def create_patch_mask_from_ids(
     return mask
 
 
+GLOBAL = set()
+
+
 def cross_attn_mask(
     patch_ids,
     patch_lengths,
@@ -265,9 +273,36 @@ def cross_attn_mask(
             kv_len,
         ), f"{cross_mask.shape} != {(bs, q_len, kv_len)}"
         if block_mask:
+            # This appears to resolve occasional nondeterministic RuntimeErrors
+            # in the create_block_mask call. I have no idea why.
+            cross_mask_copy = cross_mask.clone()
 
             def patch_mask(b, h, q_idx, kv_idx):
-                return cross_mask[b, q_idx, kv_idx]
+                return cross_mask_copy[b, q_idx, kv_idx]
+
+            # print(f"cross_mask: {cross_mask.shape}")
+            # print(f"bs: {bs}, q_len: {q_len}, kv_len: {kv_len}")
+            # print(cross_mask[0, 0, 0])
+            # for i in range(bs):
+            #     for j in range(q_len):
+            #         for k in range(kv_len):
+            #             y = cross_mask[i, j, k]
+
+            # import pickle
+
+            # with open("cross_mask.pkl", "wb") as f:
+            #     pickle.dump(cross_mask, f)
+
+            # global GLOBAL
+            # s = f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len}"
+            # if s not in GLOBAL:
+            #     GLOBAL.add(s)
+            #     print(f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len}")
+            # else:
+            #     print(f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len} (skipped)")
+
+            # if q_len >= 51 and kv_len >= 96:
+            #     breakpoint()
 
             block_mask = create_block_mask(
                 patch_mask,
@@ -277,6 +312,9 @@ def cross_attn_mask(
                 KV_LEN=kv_len,
                 _compile=True,
             )
+
+            # print(f"block_mask_shape: {block_mask.shape}")
+
             return block_mask
         else:
             return torch.where(
@@ -632,6 +670,8 @@ def create_local_encoder(args: ByteLatentTransformerArgs) -> LocalEncoder:
         cross_attn_all_layers_decoder=args.cross_attn_all_layers_decoder,
         cross_attn_nheads=args.cross_attn_nheads,
         eos_id=args.eos_id,
+        init_device=args.init_device,
+        init_dtype=args.init_dtype,
     )
 
     return LocalEncoder(local_encoder_args)
@@ -675,6 +715,8 @@ def create_local_decoder(args: ByteLatentTransformerArgs) -> LocalDecoder:
         cross_attn_all_layers_decoder=args.cross_attn_all_layers_decoder,
         cross_attn_nheads=args.cross_attn_nheads,
         eos_id=args.eos_id,
+        init_device=args.init_device,
+        init_dtype=args.init_dtype,
     )
 
     return LocalDecoder(local_decoder_args)
@@ -710,6 +752,8 @@ def init_embeddings(
                     nn.Embedding(
                         encoder_hash_byte_group_vocab,
                         emb_dim,
+                        device=args.init_device,
+                        dtype=args.init_dtype,
                     )
                 )
 
@@ -718,7 +762,14 @@ def init_embeddings(
         emb_dim = local_encoder_dim
         OFFSET = 4  # This should be passed as parameter if it's variable
         for ngram_vocab_size in encoder_ngram_to_size.values():
-            embeddings.append(nn.Embedding(ngram_vocab_size + OFFSET, emb_dim))
+            embeddings.append(
+                nn.Embedding(
+                    ngram_vocab_size + OFFSET,
+                    emb_dim,
+                    device=args.init_device,
+                    dtype=args.init_dtype,
+                )
+            )
 
     return nn.ModuleList(embeddings)
 
@@ -792,7 +843,7 @@ class ByteLatentTransformer(
     """
 
     def __init__(self, args: ByteLatentTransformerArgs):
-        super().__init__()
+        super(ByteLatentTransformer, self).__init__()
 
         # General configuration
         self.weight_tying = args.weight_tying
@@ -854,7 +905,12 @@ class ByteLatentTransformer(
             ngram_emb_dim = self.local_encoder.dim
             for ngram_vocab_size in self.encoder_ngram_to_size.values():
                 self.encoder_ngram_embedding.append(
-                    nn.Embedding(ngram_vocab_size + OFFSET, ngram_emb_dim)
+                    nn.Embedding(
+                        ngram_vocab_size + OFFSET,
+                        ngram_emb_dim,
+                        device=args.init_device,
+                        dtype=args.init_dtype,
+                    )
                 )
 
         # Output layer
@@ -872,6 +928,9 @@ class ByteLatentTransformer(
                     max_patch_length=args.max_patch_length,
                 )
             )
+
+        # Sanity check
+        check_param_device(self, args.init_device)
 
     def push_to_hub(self, *args, **kwargs):
         raise ValueError(

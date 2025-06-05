@@ -6,10 +6,6 @@ from typing import Any, List, Optional, Tuple, Union
 import torch
 import torch.nn
 import torch.nn as nn
-from pydantic import ConfigDict
-from torch.nn import functional as F
-from torch.nn.attention.flex_attention import BlockMask
-from xformers.ops import AttentionBias
 
 from bytelatent.base_transformer import (
     BaseTransformerArgs,
@@ -20,6 +16,10 @@ from bytelatent.base_transformer import (
 from bytelatent.model.latent_transformer import CrossAttention
 from bytelatent.model.utils import create_causal_mask, downsample
 from bytelatent.tokenizers.blt_tokenizer import BOE_ID
+from pydantic import ConfigDict
+from torch.nn import functional as F
+from torch.nn.attention.flex_attention import BlockMask
+from xformers.ops import AttentionBias
 
 logger = logging.getLogger()
 try:
@@ -85,18 +85,31 @@ class LocalModelBase(nn.Module):
         )
 
         if not self.use_rope:
-            self.pos_embeddings = nn.Embedding(args.max_length, args.dim)
+            self.pos_embeddings = nn.Embedding(
+                args.max_length,
+                args.dim,
+                device=args.init_device,
+                dtype=args.init_dtype,
+            )
         else:
             self.rope = RotaryEmbedding(
                 theta=args.rope_theta,
                 head_dim=args.head_dim or args.dim // args.n_heads,
                 max_seqlen=args.max_seqlen,
                 rope_use_fp32_in_outer_product=args.rope_use_fp32_in_outer_product,
+                device=args.init_device,
+                dtype=args.init_dtype,
             )
             self.pos_embeddings = None
 
         self.token_embedding_projection = (
-            nn.Linear(args.dim_token_emb, args.dim, bias=False)
+            nn.Linear(
+                args.dim_token_emb,
+                args.dim,
+                bias=False,
+                device=args.init_device,
+                dtype=args.init_dtype,
+            )
             if hasattr(args, "dim_token_emb") and args.dim_token_emb != self.dim
             else None
         )
@@ -125,6 +138,8 @@ class LocalModelBase(nn.Module):
             in_features=args.dim_patch_emb,
             out_features=output_dim,
             bias=False,
+            device=args.init_device,
+            dtype=args.init_dtype,
         )
 
     def apply_embedding(self, tokens, embeds):
@@ -218,7 +233,9 @@ class LocalEncoder(LocalModelBase):
         self.cross_attn_init_by_pooling = args.cross_attn_init_by_pooling
         self.cross_attn_nheads = args.cross_attn_nheads
 
-        self.tok_embeddings = nn.Embedding(self.vocab_size, args.dim)
+        self.tok_embeddings = nn.Embedding(
+            self.vocab_size, args.dim, device=args.init_device, dtype=args.init_dtype
+        )
 
         if self.cross_attn_encoder:
             self.cross_attn_layers = torch.nn.ModuleList()
@@ -231,6 +248,8 @@ class LocalEncoder(LocalModelBase):
                         n_heads=self.cross_attn_nheads,
                         n_kv_heads=self.cross_attn_nheads,
                         norm_eps=args.norm_eps,
+                        device=args.init_device,
+                        dtype=args.init_dtype,
                     )
                 )
 
@@ -321,7 +340,9 @@ class LocalDecoder(LocalModelBase):
         self.cross_attn_init_by_pooling = args.cross_attn_init_by_pooling
         self.cross_attn_nheads = args.cross_attn_nheads
 
-        self.norm = RMSNorm(args.dim, eps=args.norm_eps)
+        self.norm = RMSNorm(
+            args.dim, eps=args.norm_eps, device=args.init_device, dtype=args.init_dtype
+        )
 
         if self.cross_attn_decoder:
             self.cross_attn_layers = torch.nn.ModuleList()
@@ -334,6 +355,8 @@ class LocalDecoder(LocalModelBase):
                         n_heads=self.cross_attn_nheads,
                         n_kv_heads=self.cross_attn_nheads,
                         norm_eps=args.norm_eps,
+                        device=args.init_device,
+                        dtype=args.init_dtype,
                     )
                 )
 
@@ -341,6 +364,8 @@ class LocalDecoder(LocalModelBase):
             self.dim,
             args.vocab_size,
             bias=False,
+            device=args.init_device,
+            dtype=args.init_dtype,
         )
 
     def forward(
