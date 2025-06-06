@@ -43,7 +43,7 @@ class InitStdFactor(str, Enum):
 
 
 class BaseTransformerArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid")
     dim: int = 512
     n_layers: int = 8
     head_dim: int | None = None
