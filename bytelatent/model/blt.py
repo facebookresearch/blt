@@ -13,7 +13,7 @@ from bytelatent.base_transformer import (
 from bytelatent.data.patcher import Patcher, PatcherArgs
 from bytelatent.model.latent_transformer import GlobalTransformer
 from bytelatent.model.local_models import LocalDecoder, LocalEncoder, LocalModelArgs
-from bytelatent.model.utils import check_param_device, downsample
+from bytelatent.model.utils import check_param_device, downsample, DTYPE_MAP
 from bytelatent.tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
 from huggingface_hub import PyTorchModelHubMixin
 
@@ -753,7 +753,7 @@ def init_embeddings(
                         encoder_hash_byte_group_vocab,
                         emb_dim,
                         device=args.init_device,
-                        dtype=args.init_dtype,
+                        dtype=DTYPE_MAP[args.init_dtype],
                     )
                 )
 
@@ -767,7 +767,7 @@ def init_embeddings(
                     ngram_vocab_size + OFFSET,
                     emb_dim,
                     device=args.init_device,
-                    dtype=args.init_dtype,
+                    dtype=DTYPE_MAP[args.init_dtype],
                 )
             )
 
@@ -909,7 +909,7 @@ class ByteLatentTransformer(
                         ngram_vocab_size + OFFSET,
                         ngram_emb_dim,
                         device=args.init_device,
-                        dtype=args.init_dtype,
+                        dtype=dtype_map[args.init_dtype],
                     )
                 )
 

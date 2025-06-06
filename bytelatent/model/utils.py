@@ -8,6 +8,13 @@ from xformers.ops import fmha
 
 logger = logging.getLogger()
 
+DTYPE_MAP = {
+    "bf16": torch.bfloat16,
+    "fp16": torch.float16,
+    "fp32": torch.float32,
+    "fp64": torch.float64,
+}
+
 
 def patch_reduce(h, max_num_patches, reduction, patch_ids):
     """

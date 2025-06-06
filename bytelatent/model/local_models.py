@@ -14,7 +14,7 @@ from bytelatent.base_transformer import (
     TransformerBlock,
 )
 from bytelatent.model.latent_transformer import CrossAttention
-from bytelatent.model.utils import create_causal_mask, downsample
+from bytelatent.model.utils import create_causal_mask, downsample, DTYPE_MAP
 from bytelatent.tokenizers.blt_tokenizer import BOE_ID
 from pydantic import ConfigDict
 from torch.nn import functional as F
@@ -89,7 +89,7 @@ class LocalModelBase(nn.Module):
                 args.max_length,
                 args.dim,
                 device=args.init_device,
-                dtype=args.init_dtype,
+                dtype=DTYPE_MAP[args.init_dtype],
             )
         else:
             self.rope = RotaryEmbedding(
@@ -98,7 +98,7 @@ class LocalModelBase(nn.Module):
                 max_seqlen=args.max_seqlen,
                 rope_use_fp32_in_outer_product=args.rope_use_fp32_in_outer_product,
                 device=args.init_device,
-                dtype=args.init_dtype,
+                dtype=DTYPE_MAP[args.init_dtype],
             )
             self.pos_embeddings = None
 
@@ -108,7 +108,7 @@ class LocalModelBase(nn.Module):
                 args.dim,
                 bias=False,
                 device=args.init_device,
-                dtype=args.init_dtype,
+                dtype=DTYPE_MAP[args.init_dtype],
             )
             if hasattr(args, "dim_token_emb") and args.dim_token_emb != self.dim
             else None
@@ -139,7 +139,7 @@ class LocalModelBase(nn.Module):
             out_features=output_dim,
             bias=False,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
     def apply_embedding(self, tokens, embeds):
@@ -234,7 +234,10 @@ class LocalEncoder(LocalModelBase):
         self.cross_attn_nheads = args.cross_attn_nheads
 
         self.tok_embeddings = nn.Embedding(
-            self.vocab_size, args.dim, device=args.init_device, dtype=args.init_dtype
+            self.vocab_size,
+            args.dim,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         if self.cross_attn_encoder:
@@ -249,7 +252,7 @@ class LocalEncoder(LocalModelBase):
                         n_kv_heads=self.cross_attn_nheads,
                         norm_eps=args.norm_eps,
                         device=args.init_device,
-                        dtype=args.init_dtype,
+                        dtype=DTYPE_MAP[args.init_dtype],
                     )
                 )
 
@@ -341,7 +344,10 @@ class LocalDecoder(LocalModelBase):
         self.cross_attn_nheads = args.cross_attn_nheads
 
         self.norm = RMSNorm(
-            args.dim, eps=args.norm_eps, device=args.init_device, dtype=args.init_dtype
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         if self.cross_attn_decoder:
@@ -356,7 +362,7 @@ class LocalDecoder(LocalModelBase):
                         n_kv_heads=self.cross_attn_nheads,
                         norm_eps=args.norm_eps,
                         device=args.init_device,
-                        dtype=args.init_dtype,
+                        dtype=DTYPE_MAP[args.init_dtype],
                     )
                 )
 
@@ -365,7 +371,7 @@ class LocalDecoder(LocalModelBase):
             args.vocab_size,
             bias=False,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
     def forward(

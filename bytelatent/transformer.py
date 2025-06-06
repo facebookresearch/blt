@@ -10,7 +10,7 @@ from bytelatent.base_transformer import (
     BaseTransformerArgs,
     cross_entropy,
 )
-from bytelatent.model.utils import check_param_device, create_causal_mask
+from bytelatent.model.utils import check_param_device, create_causal_mask, DTYPE_MAP
 from huggingface_hub import PyTorchModelHubMixin
 from torch import nn
 from torch.distributed._tensor import Replicate, Shard
@@ -85,11 +85,17 @@ class LMTransformer(
         assert args.vocab_size > 0
 
         self.tok_embeddings = torch.nn.Embedding(
-            args.vocab_size, args.dim, device=args.init_device, dtype=args.init_dtype
+            args.vocab_size,
+            args.dim,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         self.norm = RMSNorm(
-            args.dim, eps=args.norm_eps, device=args.init_device, dtype=args.init_dtype
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         self.output = nn.Linear(
@@ -97,7 +103,7 @@ class LMTransformer(
             args.vocab_size,
             bias=False,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         if args.weight_tying:

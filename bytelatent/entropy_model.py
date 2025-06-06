@@ -11,7 +11,7 @@ logger = logging.getLogger()
 
 
 def load_entropy_model(
-    entropy_model_checkpoint_dir, state_dict_path, device="cpu", dtype=torch.bfloat16
+    entropy_model_checkpoint_dir, state_dict_path, device="cpu", dtype="bf16"
 ):
     with open(os.path.join(entropy_model_checkpoint_dir, "params.json")) as fr:
         reloaded = json.loads(fr.read())

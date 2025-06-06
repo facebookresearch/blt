@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Union
 
 import torch
 
+from bytelatent.model.utils import DTYPE_MAP
 from bytelatent.tokenizers.constants import EOS_ID
 from pydantic import BaseModel, ConfigDict
 from torch import nn
@@ -69,7 +70,7 @@ class BaseTransformerArgs(BaseModel):
     eos_id: int | None = EOS_ID
 
     init_device: str = "cpu"
-    init_dtype: torch.dtype = torch.float32
+    init_dtype: str = "float32"
 
 
 def cross_entropy(pred, target, **kwargs):
@@ -564,7 +565,7 @@ class TransformerBlock(nn.Module):
             n_kv_heads=self.n_kv_heads,
             rope_theta=args.rope_theta,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         self.feed_forward = FeedForward(
             dim=args.dim,
@@ -572,14 +573,20 @@ class TransformerBlock(nn.Module):
             multiple_of=args.multiple_of,
             ffn_dim_multiplier=args.ffn_dim_multiplier,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         # Norms stay in full precision
         self.attention_norm = RMSNorm(
-            args.dim, eps=args.norm_eps, device=args.init_device, dtype=args.init_dtype
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         self.ffn_norm = RMSNorm(
-            args.dim, eps=args.norm_eps, device=args.init_device, dtype=args.init_dtype
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
     def forward(
@@ -631,7 +638,7 @@ class BaseTransformer(nn.Module, SequenceModelWithOutput):
             max_seqlen=args.max_seqlen,
             rope_use_fp32_in_outer_product=args.rope_use_fp32_in_outer_product,
             device=args.init_device,
-            dtype=args.init_dtype,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         self.eos_id = args.eos_id
 

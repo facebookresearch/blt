@@ -12,7 +12,7 @@ from bytelatent.base_transformer import (
     flex_attention_comp,
     repeat_kv,
 )
-from bytelatent.model.utils import create_causal_mask
+from bytelatent.model.utils import create_causal_mask, DTYPE_MAP
 from torch.nn import functional as F
 from torch.nn.attention.flex_attention import BlockMask
 from xformers.ops import AttentionBias
@@ -173,7 +173,7 @@ class GlobalTransformer(BaseTransformer):
                 args.dim,
                 bias=False,
                 device=args.init_device,
-                dtype=args.init_dtype,
+                dtype=DTYPE_MAP[args.init_dtype],
             )
 
     def forward(
