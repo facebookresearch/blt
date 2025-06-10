@@ -70,7 +70,7 @@ class BaseTransformerArgs(BaseModel):
     eos_id: int | None = EOS_ID
 
     init_device: str = "cpu"
-    init_dtype: str = "float32"
+    init_dtype: str = "fp32"
 
 
 def cross_entropy(pred, target, **kwargs):
