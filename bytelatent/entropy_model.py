@@ -16,7 +16,6 @@ def load_entropy_model(
     with open(os.path.join(entropy_model_checkpoint_dir, "params.json")) as fr:
         reloaded = json.loads(fr.read())
 
-    # torch.set_default_dtype(dtype)
     model_params = reloaded["entropy_model"]
     logger.warning(
         "Update checkpoint to load attn and sliding window args from checkpoint"

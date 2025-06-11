@@ -280,30 +280,6 @@ def cross_attn_mask(
             def patch_mask(b, h, q_idx, kv_idx):
                 return cross_mask_copy[b, q_idx, kv_idx]
 
-            # print(f"cross_mask: {cross_mask.shape}")
-            # print(f"bs: {bs}, q_len: {q_len}, kv_len: {kv_len}")
-            # print(cross_mask[0, 0, 0])
-            # for i in range(bs):
-            #     for j in range(q_len):
-            #         for k in range(kv_len):
-            #             y = cross_mask[i, j, k]
-
-            # import pickle
-
-            # with open("cross_mask.pkl", "wb") as f:
-            #     pickle.dump(cross_mask, f)
-
-            # global GLOBAL
-            # s = f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len}"
-            # if s not in GLOBAL:
-            #     GLOBAL.add(s)
-            #     print(f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len}")
-            # else:
-            #     print(f"bs_{bs}_q_len_{q_len}_kv_len_{kv_len} (skipped)")
-
-            # if q_len >= 51 and kv_len >= 96:
-            #     breakpoint()
-
             block_mask = create_block_mask(
                 patch_mask,
                 B=bs,
@@ -312,8 +288,6 @@ def cross_attn_mask(
                 KV_LEN=kv_len,
                 _compile=True,
             )
-
-            # print(f"block_mask_shape: {block_mask.shape}")
 
             return block_mask
         else:
