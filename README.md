@@ -69,9 +69,7 @@ Run the following to install the env using [uv](https://docs.astral.sh/uv/).
 The main benefit of this method is that the build is reproducible since there is a lock file.
 
 ```bash
-uv pip install --group pre_build --no-build-isolation
-uv pip install --group compile_xformers --no-build-isolation
-uv sync
+uv sync --no-build-isolation-package pre_build --no-build-isolation-package compile_xformers
 uv run python download_blt_weights.py
 uv run python demo.py "A BLT has"
 ```
