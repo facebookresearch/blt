@@ -8,6 +8,13 @@ from xformers.ops import fmha
 
 logger = logging.getLogger()
 
+DTYPE_MAP = {
+    "bf16": torch.bfloat16,
+    "fp16": torch.float16,
+    "fp32": torch.float32,
+    "fp64": torch.float64,
+}
+
 
 def patch_reduce(h, max_num_patches, reduction, patch_ids):
     """
@@ -175,3 +182,10 @@ def create_causal_mask(
         raise NotImplementedError(
             f"Attention {attn_impl} with {sliding_window} sliding window not implemented"
         )
+
+
+def check_param_device(model, device_type: str = "cpu"):
+    for name, param in model.named_parameters():
+        assert (
+            param.device.type == device_type
+        ), f"Parameter {name} is on {param.device.type}, not on {device_type}"

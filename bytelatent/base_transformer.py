@@ -6,17 +6,18 @@ from enum import Enum
 from typing import Optional, Tuple, Union
 
 import torch
+
+from bytelatent.model.utils import DTYPE_MAP
+from bytelatent.tokenizers.constants import EOS_ID
 from pydantic import BaseModel, ConfigDict
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.attention.flex_attention import (
-    BlockMask,
     _mask_mod_signature,
+    BlockMask,
     flex_attention,
 )
 from xformers.ops import AttentionBias, fmha
-
-from bytelatent.tokenizers.constants import EOS_ID
 
 logger = logging.getLogger()
 
@@ -68,6 +69,9 @@ class BaseTransformerArgs(BaseModel):
     # Special token config
     eos_id: int | None = EOS_ID
 
+    init_device: str = "cpu"
+    init_dtype: str = "fp32"
+
 
 def cross_entropy(pred, target, **kwargs):
     return F.nll_loss(
@@ -95,6 +99,7 @@ def precompute_freqs_cis(
     end: int,
     theta: float = 10000.0,
     rope_use_fp32_in_outer_product: bool = False,
+    device: str | torch.device = torch.device("cpu"),
 ):
     """
     Precompute the frequency tensor for complex exponentials (cis) with given dimensions.
@@ -111,7 +116,9 @@ def precompute_freqs_cis(
     Returns:
         torch.Tensor: Precomputed frequency tensor with complex exponentials.
     """
-    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    freqs = 1.0 / (
+        theta ** (torch.arange(0, dim, 2, device=device)[: (dim // 2)].float() / dim)
+    )
     t = torch.arange(end, device=freqs.device)
     if rope_use_fp32_in_outer_product:
         t = t.to(torch.float32)
@@ -258,6 +265,8 @@ class RotaryEmbedding(torch.nn.Module):
         head_dim: int,
         max_seqlen: int = 1024,
         rope_use_fp32_in_outer_product: bool = False,
+        device: str | torch.device = torch.device("cpu"),
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
 
@@ -273,7 +282,8 @@ class RotaryEmbedding(torch.nn.Module):
                 end=max_seqlen,
                 theta=theta,
                 rope_use_fp32_in_outer_product=self.rope_use_fp32_in_outer_product,
-            ),
+                device=device,
+            ).to(dtype=dtype),
             persistent=False,
         )
 
@@ -325,6 +335,8 @@ class Attention(nn.Module):
         n_heads: int,
         n_kv_heads: int,
         rope_theta: float,
+        device: str | torch.device = torch.device("cpu"),
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
 
@@ -340,22 +352,30 @@ class Attention(nn.Module):
             dim,
             n_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.wk = nn.Linear(
             dim,
             n_kv_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.wv = nn.Linear(
             dim,
             n_kv_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
 
         self.wo = nn.Linear(
             n_heads * head_dim,
             dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
 
     def forward(
@@ -368,6 +388,7 @@ class Attention(nn.Module):
     ) -> torch.Tensor:
         # B S D
         bsz, seq_len, dim = x.shape
+
         xq = self.wq(x.view_as(x))
         xk = self.wk(x.view_as(x))
         xv = self.wv(x.view_as(x))
@@ -453,6 +474,8 @@ class FeedForward(nn.Module):
         multiple_of: int,
         ffn_dim_multiplier: Optional[float],
         mp_size: int = 1,
+        device: str | torch.device = torch.device("cpu"),
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
 
@@ -469,16 +492,22 @@ class FeedForward(nn.Module):
             dim,
             hidden_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.w3 = nn.Linear(
             dim,
             hidden_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.w2 = nn.Linear(
             hidden_dim,
             dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -535,15 +564,30 @@ class TransformerBlock(nn.Module):
             n_heads=self.n_heads,
             n_kv_heads=self.n_kv_heads,
             rope_theta=args.rope_theta,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         self.feed_forward = FeedForward(
             dim=args.dim,
             hidden_dim=4 * args.dim,
             multiple_of=args.multiple_of,
             ffn_dim_multiplier=args.ffn_dim_multiplier,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
-        self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
-        self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
+        # Norms stay in full precision
+        self.attention_norm = RMSNorm(
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
+        )
+        self.ffn_norm = RMSNorm(
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
+        )
 
     def forward(
         self,
@@ -593,6 +637,8 @@ class BaseTransformer(nn.Module, SequenceModelWithOutput):
             head_dim=args.head_dim or args.dim // args.n_heads,
             max_seqlen=args.max_seqlen,
             rope_use_fp32_in_outer_product=args.rope_use_fp32_in_outer_product,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
         self.eos_id = args.eos_id
 

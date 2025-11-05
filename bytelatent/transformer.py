@@ -4,25 +4,25 @@ import logging
 from typing import Optional, Tuple, Union
 
 import torch
-from huggingface_hub import PyTorchModelHubMixin
-from torch import nn
-from torch.distributed._tensor import Replicate, Shard
-from torch.distributed.tensor.parallel import (
-    ColwiseParallel,
-    PrepareModuleInput,
-    RowwiseParallel,
-    SequenceParallel,
-    parallelize_module,
-)
-from torch.nn.attention.flex_attention import BlockMask, create_block_mask
-from xformers.ops import AttentionBias
 
 from bytelatent.base_transformer import (
     BaseTransformer,
     BaseTransformerArgs,
     cross_entropy,
 )
-from bytelatent.model.utils import create_causal_mask
+from bytelatent.model.utils import check_param_device, create_causal_mask, DTYPE_MAP
+from huggingface_hub import PyTorchModelHubMixin
+from torch import nn
+from torch.distributed._tensor import Replicate, Shard
+from torch.distributed.tensor.parallel import (
+    ColwiseParallel,
+    parallelize_module,
+    PrepareModuleInput,
+    RowwiseParallel,
+    SequenceParallel,
+)
+from torch.nn.attention.flex_attention import BlockMask, create_block_mask
+from xformers.ops import AttentionBias
 
 logger = logging.getLogger()
 
@@ -84,18 +84,33 @@ class LMTransformer(
 
         assert args.vocab_size > 0
 
-        self.tok_embeddings = torch.nn.Embedding(args.vocab_size, args.dim)
+        self.tok_embeddings = torch.nn.Embedding(
+            args.vocab_size,
+            args.dim,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
+        )
 
-        self.norm = RMSNorm(args.dim, eps=args.norm_eps)
+        self.norm = RMSNorm(
+            args.dim,
+            eps=args.norm_eps,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
+        )
 
         self.output = nn.Linear(
             args.dim,
             args.vocab_size,
             bias=False,
+            device=args.init_device,
+            dtype=DTYPE_MAP[args.init_dtype],
         )
 
         if args.weight_tying:
             self.output.weight = self.embeddings.tok_embeddings.weight
+
+        # Sanity check
+        check_param_device(self, args.init_device)
 
     def push_to_hub(self, *args, **kwargs):
         raise ValueError(

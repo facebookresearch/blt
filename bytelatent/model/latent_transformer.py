@@ -5,9 +5,6 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn
 import torch.nn as nn
-from torch.nn import functional as F
-from torch.nn.attention.flex_attention import BlockMask
-from xformers.ops import AttentionBias
 
 from bytelatent.base_transformer import (
     BaseTransformer,
@@ -15,7 +12,10 @@ from bytelatent.base_transformer import (
     flex_attention_comp,
     repeat_kv,
 )
-from bytelatent.model.utils import create_causal_mask
+from bytelatent.model.utils import create_causal_mask, DTYPE_MAP
+from torch.nn import functional as F
+from torch.nn.attention.flex_attention import BlockMask
+from xformers.ops import AttentionBias
 
 logger = logging.getLogger()
 try:
@@ -40,6 +40,8 @@ class CrossAttention(nn.Module):
         n_heads: int,
         n_kv_heads: int,
         norm_eps: float,
+        device: str | torch.device = torch.device("cpu"),
+        dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
 
@@ -50,29 +52,39 @@ class CrossAttention(nn.Module):
         self.n_kv_heads = n_kv_heads
         self.heads_per_group = self.n_heads // self.n_kv_heads
 
-        self.cross_attn_norm_q = nn.RMSNorm(dim, eps=norm_eps)
-        self.cross_attn_norm_kv = RMSNorm(dim, eps=norm_eps)
+        self.cross_attn_norm_q = nn.RMSNorm(
+            dim, eps=norm_eps, device=device, dtype=dtype
+        )
+        self.cross_attn_norm_kv = RMSNorm(dim, eps=norm_eps, device=device, dtype=dtype)
 
         self.wq = nn.Linear(
             dim,
             n_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.wk = nn.Linear(
             dim,
             n_kv_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
         self.wv = nn.Linear(
             dim,
             n_kv_heads * head_dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
 
         self.wo = nn.Linear(
             n_heads * head_dim,
             dim,
             bias=False,
+            device=device,
+            dtype=dtype,
         )
 
     def forward(
@@ -160,6 +172,8 @@ class GlobalTransformer(BaseTransformer):
                 args.dim_token_emb,
                 args.dim,
                 bias=False,
+                device=args.init_device,
+                dtype=DTYPE_MAP[args.init_dtype],
             )
 
     def forward(

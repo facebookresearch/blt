@@ -10,11 +10,12 @@ from bytelatent.transformer import LMTransformer, LMTransformerArgs
 logger = logging.getLogger()
 
 
-def load_entropy_model(entropy_model_checkpoint_dir, state_dict_path, device="cpu"):
+def load_entropy_model(
+    entropy_model_checkpoint_dir, state_dict_path, device="cpu", dtype="bf16"
+):
     with open(os.path.join(entropy_model_checkpoint_dir, "params.json")) as fr:
         reloaded = json.loads(fr.read())
 
-    torch.set_default_dtype(torch.bfloat16)
     model_params = reloaded["entropy_model"]
     logger.warning(
         "Update checkpoint to load attn and sliding window args from checkpoint"
@@ -29,6 +30,8 @@ def load_entropy_model(entropy_model_checkpoint_dir, state_dict_path, device="cp
         attn_bias_type="local_block_causal",
         attn_impl="xformers",
         sliding_window=512,
+        init_device=device,
+        init_dtype=dtype,
     )
     entropy_model = LMTransformer(entropy_model_args)
 
@@ -38,6 +41,7 @@ def load_entropy_model(entropy_model_checkpoint_dir, state_dict_path, device="cp
     entropy_model.to(device)
     entropy_model = entropy_model.eval()
     # no grads for the model:
-    for param in entropy_model.parameters():
+    for n, param in entropy_model.named_parameters():
         param.requires_grad = False
+
     return entropy_model, entropy_model_args
